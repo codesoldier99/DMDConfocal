@@ -1,0 +1,26 @@
+
+#pragma once
+
+typedef enum
+{
+	PLUGIN_MAP,
+	PLUGIN_3DScanner,
+	PLUGIN_AutoFocus,
+	PLUGIN_AutoFocusEx,
+	PLUGIN_ColorScanner,
+	PLUGIN_CONFOCALMODE,
+	PLUGIN_CONFOCALMODEEX,
+	PLUGIN_ContinueScan,
+	PLUGIN_SIMODE,
+	PLUGIN_DIFFMEASURE,
+	PLUGIN_DIFFMEASUREPRO,
+	PLUGIN_AutoFocusDAC,
+	PLUGIN_3DCapture
+}PLUGIN_TYPE;
+
+
+
+
+
+
+

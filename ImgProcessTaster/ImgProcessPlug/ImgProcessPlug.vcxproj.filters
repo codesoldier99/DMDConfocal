@@ -1,0 +1,215 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="BaseProcess">
+      <UniqueIdentifier>{4720aec2-7cc8-4895-9a06-6256082a106b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ColorBuild">
+      <UniqueIdentifier>{eba62d98-86d9-4e6b-96c4-40507a934fef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ImgQuality">
+      <UniqueIdentifier>{6ab80edf-3e57-48f9-baa8-408320bc85c4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MapBuild">
+      <UniqueIdentifier>{02f06fe6-63fb-4220-9373-0242ea8eca9b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3DReBuild">
+      <UniqueIdentifier>{19febfe7-393d-4de5-ab65-3abeb22afb21}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="PreProcess">
+      <UniqueIdentifier>{ebd8826a-8083-40ca-aef9-0155ba132d19}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ImgProcess">
+      <UniqueIdentifier>{9d304ab7-5bd9-41b5-be14-20e165422f28}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CalValue">
+      <UniqueIdentifier>{dbd584a2-ff50-497d-b143-4f2ce78ac186}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include">
+      <UniqueIdentifier>{23a86cc6-0e69-4c08-83a9-e6b268c1aea5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="FindCell">
+      <UniqueIdentifier>{c5c65ed5-e431-42a4-9cb6-5846758ea87f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ImgDAC">
+      <UniqueIdentifier>{6339c1ba-57fa-4995-ac6d-c4f068482f19}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ImgProcessPlug.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="HOpenCVBase.h">
+      <Filter>BaseProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="ColorBuild.h">
+      <Filter>ColorBuild</Filter>
+    </ClInclude>
+    <ClInclude Include="ImgQuality.h">
+      <Filter>ImgQuality</Filter>
+    </ClInclude>
+    <ClInclude Include="MapBuild.h">
+      <Filter>MapBuild</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessMg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ReBuild.h">
+      <Filter>3DReBuild</Filter>
+    </ClInclude>
+    <ClInclude Include="GraphUtils.h">
+      <Filter>BaseProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="XscFitLines.h">
+      <Filter>BaseProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="GrayConvert.h">
+      <Filter>PreProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="ScaleConvert.h">
+      <Filter>PreProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="GamaConvert.h">
+      <Filter>PreProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="BlockScan.h">
+      <Filter>ImgProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="Morphology.h">
+      <Filter>ImgProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="EasyFunction.h">
+      <Filter>BaseProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="CutConvert.h">
+      <Filter>PreProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="CalImgValue.h">
+      <Filter>CalValue</Filter>
+    </ClInclude>
+    <ClInclude Include="AutoWB.h">
+      <Filter>ImgProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\CarlVideo.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\HCoreProcess.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\HGloableFunction.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\IHsmObserver.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\RenderChain.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="FindCell.h">
+      <Filter>FindCell</Filter>
+    </ClInclude>
+    <ClInclude Include="FilterConvert.h">
+      <Filter>PreProcess</Filter>
+    </ClInclude>
+    <ClInclude Include="ImgDAC.h">
+      <Filter>ImgDAC</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ImgProcessPlug.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="HOpenCVBase.cpp">
+      <Filter>BaseProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="ColorBuild.cpp">
+      <Filter>ColorBuild</Filter>
+    </ClCompile>
+    <ClCompile Include="ImgQuality.cpp">
+      <Filter>ImgQuality</Filter>
+    </ClCompile>
+    <ClCompile Include="MapBuild.cpp">
+      <Filter>MapBuild</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessMg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ReBuild.cpp">
+      <Filter>3DReBuild</Filter>
+    </ClCompile>
+    <ClCompile Include="GraphUtils.cpp">
+      <Filter>BaseProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="GrayConvert.cpp">
+      <Filter>PreProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="ScaleConvert.cpp">
+      <Filter>PreProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="GamaConvert.cpp">
+      <Filter>PreProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="BlockScan.cpp">
+      <Filter>ImgProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="Morphology.cpp">
+      <Filter>ImgProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="EasyFunction.cpp">
+      <Filter>BaseProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="CutConvert.cpp">
+      <Filter>PreProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="CalImgValue.cpp">
+      <Filter>CalValue</Filter>
+    </ClCompile>
+    <ClCompile Include="AutoWB.cpp">
+      <Filter>ImgProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="FindCell.cpp">
+      <Filter>FindCell</Filter>
+    </ClCompile>
+    <ClCompile Include="FilterConvert.cpp">
+      <Filter>PreProcess</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\HGloableFunction.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ImgDAC.cpp">
+      <Filter>ImgDAC</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="ImgProcessPlug.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>

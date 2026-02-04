@@ -1,0 +1,95 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Hds">
+      <UniqueIdentifier>{5ba3a1d5-5534-4372-99b4-6011e44b7232}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ExtraAxis">
+      <UniqueIdentifier>{3b8c7787-b70d-45c4-b9f2-62c238928f99}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MoticZ">
+      <UniqueIdentifier>{76a1f2b7-bb21-4c9f-a5ce-88f5428390f5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="HdsStage.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="GaliaAxis.h">
+      <Filter>Hds</Filter>
+    </ClInclude>
+    <ClInclude Include="GalilCom.h">
+      <Filter>Hds</Filter>
+    </ClInclude>
+    <ClInclude Include="MotionBox.h">
+      <Filter>Hds</Filter>
+    </ClInclude>
+    <ClInclude Include="WAxis.h">
+      <Filter>ExtraAxis</Filter>
+    </ClInclude>
+    <ClInclude Include="TmcAxis.h">
+      <Filter>ExtraAxis</Filter>
+    </ClInclude>
+    <ClInclude Include="..\MoticStage\MoticGearProto.h">
+      <Filter>MoticZ</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="HdsStage.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="GaliaAxis.cpp">
+      <Filter>Hds</Filter>
+    </ClCompile>
+    <ClCompile Include="GalilCom.cpp">
+      <Filter>Hds</Filter>
+    </ClCompile>
+    <ClCompile Include="MotionBox.cpp">
+      <Filter>Hds</Filter>
+    </ClCompile>
+    <ClCompile Include="TmcAxis.cpp">
+      <Filter>ExtraAxis</Filter>
+    </ClCompile>
+    <ClCompile Include="WAxis.cpp">
+      <Filter>ExtraAxis</Filter>
+    </ClCompile>
+    <ClCompile Include="..\MoticStage\MoticGearProto.cpp">
+      <Filter>MoticZ</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\HTimer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="HdsStage.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>

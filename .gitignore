@@ -1,0 +1,82 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.aps
+
+# Build results
+Debug/
+Release/
+x64/
+x86/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+
+# Visual C++
+*.ilk
+*.pdb
+*.idb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*.log
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+*.obj
+*.iobj
+*.ipdb
+*.exp
+*.lib
+*.dll
+*.exe
+
+# External Libraries (第三方库不应该提交到仓库)
+\#ExLib/
+
+# Data files (运行时数据)
+\#Data/
+
+# Output directory
+\#Output/
+
+# Unused files
+\#UnUse/
+
+# Temp files
+*.bak
+~$*
+*.swp
+*~
+.DS_Store
+Thumbs.db
+*.temp
+*.cache
+
+# Large binary files
+*.iso
+*.tar
+*.zip
+*.rar
+*.7z
+
+# Backup files
+*.old
+*.orig

@@ -1,0 +1,389 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="ViewColor">
+      <UniqueIdentifier>{15f1200e-d3a7-434c-ad1b-6026dce1ba0d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ViewConfocal">
+      <UniqueIdentifier>{e3805fae-9018-4cfd-9fb0-25a23c60c5b7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ViewMsgBox">
+      <UniqueIdentifier>{b02aa7af-6595-43db-bf58-7e8fb36f3ddb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ViewOpenGL">
+      <UniqueIdentifier>{cb5c7003-c632-4a8f-a5d5-63d604a5513b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ViewVideo">
+      <UniqueIdentifier>{1bc4936a-c162-41ae-85bd-4a649a1f7f00}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ViewMutiFocus">
+      <UniqueIdentifier>{d191e75c-c17f-497f-abe8-ef7ab38c41b7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TestFrm">
+      <UniqueIdentifier>{3bca2039-7410-4b00-af37-94d7b8cf2649}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="View3DScan">
+      <UniqueIdentifier>{61123f2a-cc53-49a4-b82f-f95dddd6395c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ViewSI">
+      <UniqueIdentifier>{6a1faab6-2f5c-45ea-80b2-447fc5759d1f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DlgStage">
+      <UniqueIdentifier>{c0cb3ac8-a5a5-4dfe-967a-0ed3a6797e1c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DlgCVShow">
+      <UniqueIdentifier>{49bf46e2-03a7-4ae9-95be-71b156ac74fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DlgCameraCtrl">
+      <UniqueIdentifier>{7d3bb225-96d7-43ac-922f-2477ab3f3eed}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DlgDiff">
+      <UniqueIdentifier>{143a97f4-dd20-4794-a631-80bdb22447a8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ViewDiff">
+      <UniqueIdentifier>{367cf44c-7d01-4414-9a6f-7d1e64e72000}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ViewDiff\Table">
+      <UniqueIdentifier>{aa523604-4e01-46b3-8f5a-908f0c63ed8c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ViewDiff\Table\Image">
+      <UniqueIdentifier>{7c9d4425-0656-49f5-9136-77bd938470b3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ViewDiff\Table\Line">
+      <UniqueIdentifier>{e58c6010-30f7-4a5a-974f-2e3bf131b506}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ViewDiff\Table\3DShow">
+      <UniqueIdentifier>{6ecb9722-693c-481c-b076-28557b022e3a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DlgDMD&amp;Conf&amp;DI">
+      <UniqueIdentifier>{7ded3a24-b3f7-4d6a-a7a6-6d210f555a5f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DlgCVShow\ChartSrc">
+      <UniqueIdentifier>{71938ad8-4a79-4c93-be3a-1b2d2165ba57}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DlgScan3D&amp;ScanMap">
+      <UniqueIdentifier>{cf862db9-5cca-4abf-bd81-479c738250ff}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DlgMapShow">
+      <UniqueIdentifier>{abedfa8e-6837-4072-bd13-10792d2d42cd}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ReadMe.txt" />
+    <None Include="res\MC_XY_D.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\MC_XY_L.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\MC_XY_LD.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\MC_XY_LU.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\MC_XY_R.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\MC_XY_RD.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\MC_XY_RU.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\MC_XY_U.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\icon1.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\Z_D_SLOW.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\Z_U_SLOW.ico">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="res\Right.png">
+      <Filter>资源文件</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ConfocalUILib.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ResizeDlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="StageCtlDlg.h">
+      <Filter>DlgStage</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoConfDlg.h">
+      <Filter>DlgCameraCtrl</Filter>
+    </ClInclude>
+    <ClInclude Include="DMDdnDlg.h">
+      <Filter>DlgDMD&amp;Conf&amp;DI</Filter>
+    </ClInclude>
+    <ClInclude Include="MergeView.h">
+      <Filter>ViewConfocal</Filter>
+    </ClInclude>
+    <ClInclude Include="ScannerDlg.h">
+      <Filter>DlgScan3D&amp;ScanMap</Filter>
+    </ClInclude>
+    <ClInclude Include="GlHeight.h">
+      <Filter>ViewOpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="GLviewWnd.h">
+      <Filter>ViewOpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="MsgViewBox.h">
+      <Filter>ViewMsgBox</Filter>
+    </ClInclude>
+    <ClInclude Include="ScannerParas.h">
+      <Filter>DlgScan3D&amp;ScanMap</Filter>
+    </ClInclude>
+    <ClInclude Include="ColorView.h">
+      <Filter>ViewColor</Filter>
+    </ClInclude>
+    <ClInclude Include="MapViewDlg.h">
+      <Filter>DlgMapShow</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoView.h">
+      <Filter>ViewVideo</Filter>
+    </ClInclude>
+    <ClInclude Include="WndBmp.h">
+      <Filter>ViewMutiFocus</Filter>
+    </ClInclude>
+    <ClInclude Include="Pager.h">
+      <Filter>TestFrm</Filter>
+    </ClInclude>
+    <ClInclude Include="PagerWnd.h">
+      <Filter>TestFrm</Filter>
+    </ClInclude>
+    <ClInclude Include="CPButton.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ShowCVDlg.h">
+      <Filter>DlgCVShow</Filter>
+    </ClInclude>
+    <ClInclude Include="ViewScan.h">
+      <Filter>View3DScan</Filter>
+    </ClInclude>
+    <ClInclude Include="SIView.h">
+      <Filter>ViewSI</Filter>
+    </ClInclude>
+    <ClInclude Include="SIViewPanel.h">
+      <Filter>ViewDiff\Table</Filter>
+    </ClInclude>
+    <ClInclude Include="SIImageWnd.h">
+      <Filter>ViewDiff\Table\Image</Filter>
+    </ClInclude>
+    <ClInclude Include="SIImagePanel.h">
+      <Filter>ViewDiff\Table\Image</Filter>
+    </ClInclude>
+    <ClInclude Include="SILineProfilePanel.h">
+      <Filter>ViewDiff\Table\Line</Filter>
+    </ClInclude>
+    <ClInclude Include="HeatmapWnd.h">
+      <Filter>ViewDiff\Table\Line</Filter>
+    </ClInclude>
+    <ClInclude Include="SI3DPanel.h">
+      <Filter>ViewDiff\Table\3DShow</Filter>
+    </ClInclude>
+    <ClInclude Include="DiffMeasureView.h">
+      <Filter>ViewDiff</Filter>
+    </ClInclude>
+    <ClInclude Include="DifferentialSettingsDlg.h">
+      <Filter>DlgDiff</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfocalUILib.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ResizeDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="StageCtlDlg.cpp">
+      <Filter>DlgStage</Filter>
+    </ClCompile>
+    <ClCompile Include="VideoConfDlg.cpp">
+      <Filter>DlgCameraCtrl</Filter>
+    </ClCompile>
+    <ClCompile Include="DMDdnDlg.cpp">
+      <Filter>DlgDMD&amp;Conf&amp;DI</Filter>
+    </ClCompile>
+    <ClCompile Include="MergeView.cpp">
+      <Filter>ViewConfocal</Filter>
+    </ClCompile>
+    <ClCompile Include="ScannerDlg.cpp">
+      <Filter>DlgScan3D&amp;ScanMap</Filter>
+    </ClCompile>
+    <ClCompile Include="GlHeight.cpp">
+      <Filter>ViewOpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="GLviewWnd.cpp">
+      <Filter>ViewOpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="MsgViewBox.cpp">
+      <Filter>ViewMsgBox</Filter>
+    </ClCompile>
+    <ClCompile Include="ScannerParas.cpp">
+      <Filter>DlgScan3D&amp;ScanMap</Filter>
+    </ClCompile>
+    <ClCompile Include="ColorView.cpp">
+      <Filter>ViewColor</Filter>
+    </ClCompile>
+    <ClCompile Include="MapViewDlg.cpp">
+      <Filter>DlgMapShow</Filter>
+    </ClCompile>
+    <ClCompile Include="VideoView.cpp">
+      <Filter>ViewVideo</Filter>
+    </ClCompile>
+    <ClCompile Include="WndBmp.cpp">
+      <Filter>ViewMutiFocus</Filter>
+    </ClCompile>
+    <ClCompile Include="Pager.cpp">
+      <Filter>TestFrm</Filter>
+    </ClCompile>
+    <ClCompile Include="PagerWnd.cpp">
+      <Filter>TestFrm</Filter>
+    </ClCompile>
+    <ClCompile Include="ShowCVDlg.cpp">
+      <Filter>DlgCVShow</Filter>
+    </ClCompile>
+    <ClCompile Include="ViewScan.cpp">
+      <Filter>View3DScan</Filter>
+    </ClCompile>
+    <ClCompile Include="SIView.cpp">
+      <Filter>ViewSI</Filter>
+    </ClCompile>
+    <ClCompile Include="CPButton.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\Global\HGloableFunction.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="SIViewPanel.cpp">
+      <Filter>ViewDiff\Table</Filter>
+    </ClCompile>
+    <ClCompile Include="SIImageWnd.cpp">
+      <Filter>ViewDiff\Table\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="SIImagePanel.cpp">
+      <Filter>ViewDiff\Table\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="SILineProfilePanel.cpp">
+      <Filter>ViewDiff\Table\Line</Filter>
+    </ClCompile>
+    <ClCompile Include="HeatmapWnd.cpp">
+      <Filter>ViewDiff\Table\Line</Filter>
+    </ClCompile>
+    <ClCompile Include="SI3DPanel.cpp">
+      <Filter>ViewDiff\Table\3DShow</Filter>
+    </ClCompile>
+    <ClCompile Include="DiffMeasureView.cpp">
+      <Filter>ViewDiff</Filter>
+    </ClCompile>
+    <ClCompile Include="DifferentialSettingsDlg.cpp">
+      <Filter>DlgDiff</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartAxis.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartAxisLabel.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartBarSerie.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartCandlestickSerie.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartCrossHairCursor.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartCtrl.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartCursor.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartDateTimeAxis.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartDragLineCursor.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartFont.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartGanttSerie.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartGradient.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartGrid.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartLegend.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartLineSerie.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartLogarithmicAxis.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartPointsSerie.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartScrollBar.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartSerie.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartStandardAxis.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartSurfaceSerie.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartTitle.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartXYSerie.cpp">
+      <Filter>DlgCVShow\ChartSrc</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="ConfocalUILib.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>

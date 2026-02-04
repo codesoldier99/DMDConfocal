@@ -1,0 +1,314 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{0629FAF1-3E0F-4DD2-ACD3-CFE3EBADBF6A}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>ConfocalUILib</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseOfMfc>Dynamic</UseOfMfc>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseOfMfc>Dynamic</UseOfMfc>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseOfMfc>Dynamic</UseOfMfc>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v141</PlatformToolset>
+    <UseOfMfc>Dynamic</UseOfMfc>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <IntDir>$(Configuration)\</IntDir>
+    <IncludePath>$(SolutionDir)#Include;$(SolutionDir)#ExSrc\ChartClass\Inc;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <IncludePath>$(SolutionDir)#ExSrc\ChartClass\Inc;$(SolutionDir)#Include;$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(SolutionDir)#Include;$(SolutionDir)#ExSrc\ChartClass\Inc;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(SolutionDir)#Include;$(SolutionDir)#ExSrc\ChartClass\Inc;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;CONFOCALUILIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)#ExLib\OpenGL\Inc;$(SolutionDir)#ExLib\vtk\Inc\$(PlatformName)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>opengl32.lib;glu32.lib;glaux.lib;legacy_stdio_definitions.lib;vtkGUISupportMFC-8.2d.lib;vtkInteractionStyle-8.2d.lib;vtkRenderingOpenGL2-8.2d.lib;vtkRenderingCore-8.2d.lib;vtkCommonDataModel-8.2d.lib;vtkCommonExecutionModel-8.2d.lib;vtkCommonCore-8.2d.lib;vtkFiltersGeneral-8.2d.lib;vtkFiltersGeometry-8.2d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)#ExLib\OpenGL\Lib\$(PlatformName);$(SolutionDir)#ExLib\vtk\Lib\$(PlatformName)\$(ConfigurationName);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+    <PostBuildEvent>
+      <Command>md $(SolutionDir)#Output\$(PlatformName)\$(Configuration)
+md $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)
+xcopy /y $(TargetPath) $(SolutionDir)#Output\$(PlatformName)\$(Configuration)
+xcopy /y $(TargetPath) $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)
+rem xcopy /y $(SolutionDir)#ExLib\OpenGL\Lib\$(PlatformName)\*.dll $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)
+xcopy /y $(SolutionDir)#ExLib\vtk\Lib\$(PlatformName)\$(Configuration)\*.dll $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;CONFOCALUILIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)#ExLib\OpenGL\Inc;$(SolutionDir)#ExLib\vtk\Inc\$(PlatformName)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>opengl32.lib;glu32.lib;glaux.lib;legacy_stdio_definitions.lib;vtkGUISupportMFC-8.2d.lib;vtkInteractionStyle-8.2d.lib;vtkRenderingOpenGL2-8.2d.lib;vtkRenderingCore-8.2d.lib;vtkCommonDataModel-8.2d.lib;vtkCommonExecutionModel-8.2d.lib;vtkCommonCore-8.2d.lib;vtkFiltersGeneral-8.2d.lib;vtkFiltersGeometry-8.2d.lib;vtkRenderingFreeType-8.2d.lib;vtkRenderingGL2PSOpenGL2-8.2d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)#ExLib\OpenGL\Lib\$(PlatformName);$(SolutionDir)#ExLib\vtk\Lib\$(PlatformName)\$(ConfigurationName);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+    <PostBuildEvent>
+      <Command>md $(SolutionDir)#Output\$(PlatformName)\$(Configuration)
+md $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)
+xcopy /y $(TargetPath) $(SolutionDir)#Output\$(PlatformName)\$(Configuration)
+xcopy /y $(TargetPath) $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)
+rem xcopy /y $(SolutionDir)#ExLib\OpenGL\Lib\$(PlatformName)\*.dll $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)
+xcopy /y $(SolutionDir)#ExLib\vtk\Lib\$(PlatformName)\$(Configuration)\*.dll $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;CONFOCALUILIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)#ExLib\OpenGL\Inc;$(SolutionDir)#ExLib\vtk\Inc\$(PlatformName)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>opengl32.lib;glu32.lib;glaux.lib;legacy_stdio_definitions.lib;vtkGUISupportMFC-8.2.lib;vtkInteractionStyle-8.2.lib;vtkRenderingOpenGL2-8.2.lib;vtkRenderingCore-8.2.lib;vtkCommonDataModel-8.2.lib;vtkCommonExecutionModel-8.2.lib;vtkCommonCore-8.2.lib;vtkFiltersGeneral-8.2.lib;vtkFiltersGeometry-8.2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)#ExLib\OpenGL\Lib\$(PlatformName);$(SolutionDir)#ExLib\vtk\Lib\$(PlatformName)\$(ConfigurationName);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+    <PostBuildEvent>
+      <Command>md $(SolutionDir)#Output\$(PlatformName)\$(Configuration)
+md $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)
+xcopy /y $(TargetPath) $(SolutionDir)#Output\$(PlatformName)\$(Configuration)
+xcopy /y $(TargetPath) $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)
+rem xcopy /y $(SolutionDir)#ExLib\OpenGL\Lib\$(PlatformName)\*.dll $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)
+xcopy /y $(SolutionDir)#ExLib\vtk\Lib\$(PlatformName)\$(Configuration)\*.dll $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;CONFOCALUILIB_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)#ExLib\OpenGL\Inc;$(SolutionDir)#ExLib\vtk\Inc\$(PlatformName)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>$(SolutionDir)#ExLib\OpenGL\Lib\$(PlatformName);$(SolutionDir)#ExLib\vtk\Lib\$(PlatformName)\$(ConfigurationName);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;glu32.lib;glaux.lib;legacy_stdio_definitions.lib;vtkGUISupportMFC-8.2.lib;vtkInteractionStyle-8.2.lib;vtkRenderingOpenGL2-8.2.lib;vtkRenderingCore-8.2.lib;vtkCommonDataModel-8.2.lib;vtkCommonExecutionModel-8.2.lib;vtkCommonCore-8.2.lib;vtkFiltersGeneral-8.2.lib;vtkFiltersGeometry-8.2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>md $(SolutionDir)#Output\$(PlatformName)\$(Configuration)
+md $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)
+xcopy /y $(TargetPath) $(SolutionDir)#Output\$(PlatformName)\$(Configuration)
+xcopy /y $(TargetPath) $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)
+rem xcopy /y $(SolutionDir)#ExLib\OpenGL\Lib\$(PlatformName)\*.dll $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)
+xcopy /y $(SolutionDir)#ExLib\vtk\Lib\$(PlatformName)\$(Configuration)\*.dll $(SolutionDir)..\#Output\$(PlatformName)\$(Configuration)</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <None Include="ReadMe.txt" />
+    <None Include="res\icon1.ico" />
+    <None Include="res\MC_XY_D.ico" />
+    <None Include="res\MC_XY_L.ico" />
+    <None Include="res\MC_XY_LD.ico" />
+    <None Include="res\MC_XY_LU.ico" />
+    <None Include="res\MC_XY_R.ico" />
+    <None Include="res\MC_XY_RD.ico" />
+    <None Include="res\MC_XY_RU.ico" />
+    <None Include="res\MC_XY_U.ico" />
+    <None Include="res\Right.png" />
+    <None Include="res\Z_D_SLOW.ico" />
+    <None Include="res\Z_U_SLOW.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ColorView.h" />
+    <ClInclude Include="ConfocalUILib.h" />
+    <ClInclude Include="CPButton.h" />
+    <ClInclude Include="DifferentialSettingsDlg.h" />
+    <ClInclude Include="DiffMeasureView.h" />
+    <ClInclude Include="DMDdnDlg.h" />
+    <ClInclude Include="GlHeight.h" />
+    <ClInclude Include="GLviewWnd.h" />
+    <ClInclude Include="HeatmapWnd.h" />
+    <ClInclude Include="MapViewDlg.h" />
+    <ClInclude Include="MergeView.h" />
+    <ClInclude Include="MsgViewBox.h" />
+    <ClInclude Include="Pager.h" />
+    <ClInclude Include="PagerWnd.h" />
+    <ClInclude Include="ResizeDlg.h" />
+    <ClInclude Include="Resource.h" />
+    <ClInclude Include="ScannerDlg.h" />
+    <ClInclude Include="ScannerParas.h" />
+    <ClInclude Include="ShowCVDlg.h" />
+    <ClInclude Include="SI3DPanel.h" />
+    <ClInclude Include="SIImagePanel.h" />
+    <ClInclude Include="SIImageWnd.h" />
+    <ClInclude Include="SILineProfilePanel.h" />
+    <ClInclude Include="SIView.h" />
+    <ClInclude Include="SIViewPanel.h" />
+    <ClInclude Include="StageCtlDlg.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="VideoConfDlg.h" />
+    <ClInclude Include="VideoView.h" />
+    <ClInclude Include="ViewScan.h" />
+    <ClInclude Include="WndBmp.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartAxis.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartAxisLabel.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartBarSerie.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartCandlestickSerie.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartCrossHairCursor.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartCtrl.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartCursor.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartDateTimeAxis.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartDragLineCursor.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartFont.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartGanttSerie.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartGradient.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartGrid.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartLegend.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartLineSerie.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartLogarithmicAxis.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartPointsSerie.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartScrollBar.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartSerie.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartStandardAxis.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartSurfaceSerie.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartTitle.cpp" />
+    <ClCompile Include="..\#ExSrc\ChartClass\Cpp\ChartXYSerie.cpp" />
+    <ClCompile Include="..\#ExSrc\Global\HGloableFunction.cpp" />
+    <ClCompile Include="ColorView.cpp" />
+    <ClCompile Include="ConfocalUILib.cpp" />
+    <ClCompile Include="CPButton.cpp" />
+    <ClCompile Include="DifferentialSettingsDlg.cpp" />
+    <ClCompile Include="DiffMeasureView.cpp" />
+    <ClCompile Include="DMDdnDlg.cpp" />
+    <ClCompile Include="GlHeight.cpp" />
+    <ClCompile Include="GLviewWnd.cpp" />
+    <ClCompile Include="HeatmapWnd.cpp" />
+    <ClCompile Include="MapViewDlg.cpp" />
+    <ClCompile Include="MergeView.cpp" />
+    <ClCompile Include="MsgViewBox.cpp" />
+    <ClCompile Include="Pager.cpp" />
+    <ClCompile Include="PagerWnd.cpp" />
+    <ClCompile Include="ResizeDlg.cpp" />
+    <ClCompile Include="ScannerDlg.cpp" />
+    <ClCompile Include="ScannerParas.cpp" />
+    <ClCompile Include="ShowCVDlg.cpp" />
+    <ClCompile Include="SI3DPanel.cpp" />
+    <ClCompile Include="SIImagePanel.cpp" />
+    <ClCompile Include="SIImageWnd.cpp" />
+    <ClCompile Include="SILineProfilePanel.cpp" />
+    <ClCompile Include="SIView.cpp" />
+    <ClCompile Include="SIViewPanel.cpp" />
+    <ClCompile Include="StageCtlDlg.cpp" />
+    <ClCompile Include="stdafx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="VideoConfDlg.cpp" />
+    <ClCompile Include="VideoView.cpp" />
+    <ClCompile Include="ViewScan.cpp" />
+    <ClCompile Include="WndBmp.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="ConfocalUILib.rc" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+  <ProjectExtensions>
+    <VisualStudio>
+      <UserProperties RESOURCE_FILE="ConfocalUILib.rc" />
+    </VisualStudio>
+  </ProjectExtensions>
+</Project>

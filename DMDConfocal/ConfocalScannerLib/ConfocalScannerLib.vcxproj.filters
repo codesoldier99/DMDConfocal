@@ -1,0 +1,164 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="MapScanner">
+      <UniqueIdentifier>{e707fb1c-7db9-455b-ba90-f92f54c0975d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ConfocalMode">
+      <UniqueIdentifier>{6ea1a015-df46-41e6-9693-44e2b1b919a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3DScanner">
+      <UniqueIdentifier>{a45f045a-764f-406f-9d70-649dd46e980c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ColorScanner">
+      <UniqueIdentifier>{23fa801d-02b7-40bd-b908-575c6468d05e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AutoFocus">
+      <UniqueIdentifier>{1823224f-72e9-4f8f-883a-7289ccb70885}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AutoFocusEx">
+      <UniqueIdentifier>{e04476d0-f98b-4c70-bb7a-dc761d7f05ae}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="StructLight">
+      <UniqueIdentifier>{c8cc5aae-77c6-4aca-8d29-399b6718a820}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DiffMeasure">
+      <UniqueIdentifier>{d326ea37-4ad0-44b9-bcb1-b4c7922f9e1c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AutoFocus-DAC">
+      <UniqueIdentifier>{019c5f78-0f85-4626-b49c-b2f7f69a5824}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ContinueScan">
+      <UniqueIdentifier>{de4299a4-4054-406d-a4c7-53bb3f642c4e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3DCapture">
+      <UniqueIdentifier>{e63b5101-d8d1-469a-8c95-89107b08ae2c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ConfocalScannerLib.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\HTimer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MapScanner.h">
+      <Filter>MapScanner</Filter>
+    </ClInclude>
+    <ClInclude Include="ConfocalMerge.h">
+      <Filter>ConfocalMode</Filter>
+    </ClInclude>
+    <ClInclude Include="C3DScanner.h">
+      <Filter>3DScanner</Filter>
+    </ClInclude>
+    <ClInclude Include="ColorSacnner.h">
+      <Filter>ColorScanner</Filter>
+    </ClInclude>
+    <ClInclude Include="AutoFocus.h">
+      <Filter>AutoFocus</Filter>
+    </ClInclude>
+    <ClInclude Include="AutoFocusEx.h">
+      <Filter>AutoFocusEx</Filter>
+    </ClInclude>
+    <ClInclude Include="ContinueScan.h">
+      <Filter>ContinueScan</Filter>
+    </ClInclude>
+    <ClInclude Include="StructLightReconstruct.h">
+      <Filter>StructLight</Filter>
+    </ClInclude>
+    <ClInclude Include="DiffMeasure.h">
+      <Filter>DiffMeasure</Filter>
+    </ClInclude>
+    <ClInclude Include="DiffMeasurePro.h">
+      <Filter>DiffMeasure</Filter>
+    </ClInclude>
+    <ClInclude Include="AutoFocusDAC.h">
+      <Filter>AutoFocus-DAC</Filter>
+    </ClInclude>
+    <ClInclude Include="C3DCapture.h">
+      <Filter>3DCapture</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfocalScannerLib.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MapScanner.cpp">
+      <Filter>MapScanner</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfocalMerge.cpp">
+      <Filter>ConfocalMode</Filter>
+    </ClCompile>
+    <ClCompile Include="C3DScanner.cpp">
+      <Filter>3DScanner</Filter>
+    </ClCompile>
+    <ClCompile Include="ColorSacnner.cpp">
+      <Filter>ColorScanner</Filter>
+    </ClCompile>
+    <ClCompile Include="AutoFocus.cpp">
+      <Filter>AutoFocus</Filter>
+    </ClCompile>
+    <ClCompile Include="AutoFocusEx.cpp">
+      <Filter>AutoFocusEx</Filter>
+    </ClCompile>
+    <ClCompile Include="ContinueScan.cpp">
+      <Filter>ContinueScan</Filter>
+    </ClCompile>
+    <ClCompile Include="StructLightReconstruct.cpp">
+      <Filter>StructLight</Filter>
+    </ClCompile>
+    <ClCompile Include="DiffMeasure.cpp">
+      <Filter>DiffMeasure</Filter>
+    </ClCompile>
+    <ClCompile Include="DiffMeasurePro.cpp">
+      <Filter>DiffMeasure</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\Global\HGloableFunction.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\Global\HImgProcess.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\#ExSrc\Global\HTimer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="AutoFocusDAC.cpp">
+      <Filter>AutoFocus-DAC</Filter>
+    </ClCompile>
+    <ClCompile Include="C3DCapture.cpp">
+      <Filter>3DCapture</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="ConfocalScannerLib.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>
