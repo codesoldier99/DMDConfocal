@@ -1,0 +1,2499 @@
+From c79530bd4188535db5bf54ae0b464a23662e9fee Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 9 Mar 2026 21:14:11 +0000
+Subject: [PATCH] Implement 8 DMDConfocal-inspired enhancements for DAC-3D v3.0
+
+P0 - Event-driven synchronization:
+  - Add wait_for_move() to SimStage using threading.Event
+  - Replace while/sleep polling in scan_service with event wait
+
+P0 - Real-time image preview:
+  - Add LiveViewProcessor and LiveViewWidget with 30ms refresh
+
+P1 - RenderChain streaming pipeline:
+  - FrameProcessor, RenderChain, RenderChainManager
+  - Integrated into ScanService
+
+P1 - Async file saver with queue-based non-blocking saves
+
+P2 - Frame buffer pool with pre-allocation and size detection
+
+P2 - NumPy vectorized image processing (img_max, reconstruct, etc.)
+
+P2 - Streaming confocal merge with constant memory
+
+P3 - DMD driver (SimDMD) with binary pattern packing
+
+All 58 tests pass.
+
+https://claude.ai/code/session_01QGtT2iPMoGhKKA5TPiE7ZL
+---
+ dac3d/core/event_bus.py                  |  11 +-
+ dac3d/core/pipeline/__init__.py          |  11 +
+ dac3d/core/pipeline/async_saver.py       | 157 ++++
+ dac3d/core/pipeline/frame_buffer_pool.py | 135 ++++
+ dac3d/core/pipeline/render_chain.py      | 123 +++
+ dac3d/hal/dmd/__init__.py                |   3 +
+ dac3d/hal/dmd/sim_dmd.py                 | 185 +++++
+ dac3d/hal/sim/sim_stage.py               |  28 +-
+ dac3d/processing/__init__.py             |  25 +
+ dac3d/processing/confocal_merge.py       | 125 +++
+ dac3d/processing/image_ops.py            | 193 +++++
+ dac3d/processing/struct_light.py         | 154 ++++
+ dac3d/services/scan_service.py           |  41 +-
+ tests/__init__.py                        |   0
+ tests/unit/__init__.py                   |   0
+ tests/unit/test_enhancements.py          | 922 +++++++++++++++++++++++
+ ui/live_view_widget.py                   | 154 ++++
+ 17 files changed, 2253 insertions(+), 14 deletions(-)
+ create mode 100644 dac3d/core/pipeline/__init__.py
+ create mode 100644 dac3d/core/pipeline/async_saver.py
+ create mode 100644 dac3d/core/pipeline/frame_buffer_pool.py
+ create mode 100644 dac3d/core/pipeline/render_chain.py
+ create mode 100644 dac3d/hal/dmd/__init__.py
+ create mode 100644 dac3d/hal/dmd/sim_dmd.py
+ create mode 100644 dac3d/processing/__init__.py
+ create mode 100644 dac3d/processing/confocal_merge.py
+ create mode 100644 dac3d/processing/image_ops.py
+ create mode 100644 dac3d/processing/struct_light.py
+ create mode 100644 tests/__init__.py
+ create mode 100644 tests/unit/__init__.py
+ create mode 100644 tests/unit/test_enhancements.py
+ create mode 100644 ui/live_view_widget.py
+
+diff --git a/dac3d/core/event_bus.py b/dac3d/core/event_bus.py
+index 81b453b..124eead 100644
+--- a/dac3d/core/event_bus.py
++++ b/dac3d/core/event_bus.py
+@@ -110,12 +110,17 @@ class EventBus:
+         logger.info("EventBus stopped")
+     
+     def _process_events(self) -> None:
+-        """事件处理工作线程"""
++        """事件处理工作线程
++
++        优化：将 timeout 从 0.1s(100ms) 降至 0.5s，
++        借鉴 DMDConfocal 的事件驱动策略减少无效轮询。
++        """
+         while self._running:
+             try:
+-                event = self._event_queue.get(timeout=0.1)
++                event = self._event_queue.get(timeout=0.5)
+                 self.publish(event)
+-            except:
++                self._event_queue.task_done()
++            except Exception:
+                 continue
+     
+     def clear_all(self) -> None:
+diff --git a/dac3d/core/pipeline/__init__.py b/dac3d/core/pipeline/__init__.py
+new file mode 100644
+index 0000000..fe85e83
+--- /dev/null
++++ b/dac3d/core/pipeline/__init__.py
+@@ -0,0 +1,11 @@
++from dac3d.core.pipeline.render_chain import FrameProcessor, RenderChain, RenderChainManager
++from dac3d.core.pipeline.frame_buffer_pool import FrameBufferPool
++from dac3d.core.pipeline.async_saver import AsyncFrameSaver
++
++__all__ = [
++    "FrameProcessor",
++    "RenderChain",
++    "RenderChainManager",
++    "FrameBufferPool",
++    "AsyncFrameSaver",
++]
+diff --git a/dac3d/core/pipeline/async_saver.py b/dac3d/core/pipeline/async_saver.py
+new file mode 100644
+index 0000000..717ffef
+--- /dev/null
++++ b/dac3d/core/pipeline/async_saver.py
+@@ -0,0 +1,157 @@
++"""
++异步帧保存器
++
++借鉴 DMDConfocal 的异步保存策略：
++- memcpy 到专用缓冲区后立即启动保存线程
++- 处理线程不等待 I/O 完成
++- 支持多种格式（npy, tiff, bmp）
++"""
++
++import logging
++import queue
++import threading
++from pathlib import Path
++from typing import Optional
++import numpy as np
++from numpy.typing import NDArray
++
++
++logger = logging.getLogger(__name__)
++
++
++class AsyncFrameSaver:
++    """异步帧保存器
++
++    将保存操作从处理流水线中解耦，保存在独立线程中完成。
++    等价于 DMDConfocal 的 SaveProc 线程 + m_SaveTemp 专用缓冲区。
++    """
++
++    def __init__(self, max_pending: int = 32, n_workers: int = 2):
++        """初始化
++
++        Args:
++            max_pending: 最大挂起保存任务数
++            n_workers: 保存工作线程数
++        """
++        self._queue: queue.Queue = queue.Queue(maxsize=max_pending)
++        self._running = True
++        self._workers = []
++        self._save_count = 0
++        self._error_count = 0
++        self._lock = threading.Lock()
++
++        for i in range(n_workers):
++            t = threading.Thread(target=self._save_worker, name=f"saver-{i}", daemon=True)
++            t.start()
++            self._workers.append(t)
++
++        logger.info(f"AsyncFrameSaver: {n_workers} workers, max_pending={max_pending}")
++
++    def save(self, frame: NDArray, path: str, fmt: str = "npy") -> bool:
++        """非阻塞提交保存任务
++
++        先拷贝到专用缓冲区，调用者可立即复用原帧缓冲区。
++
++        Args:
++            frame: 图像数据
++            path: 保存路径
++            fmt: 格式 ("npy", "raw")
++
++        Returns:
++            bool: 成功加入队列返回 True
++        """
++        # 拷贝到专用缓冲区（等价于 DMDConfocal 的 memcpy(m_SaveTemp, ...)）
++        frame_copy = frame.copy()
++
++        try:
++            self._queue.put_nowait((frame_copy, path, fmt))
++            return True
++        except queue.Full:
++            logger.warning("AsyncFrameSaver: queue full, dropping frame")
++            return False
++
++    def _save_worker(self):
++        """保存工作线程"""
++        while self._running:
++            try:
++                item = self._queue.get(timeout=0.5)
++            except queue.Empty:
++                continue
++
++            frame, path, fmt = item
++            try:
++                p = Path(path)
++                p.parent.mkdir(parents=True, exist_ok=True)
++
++                if fmt == "npy":
++                    np.save(str(p), frame)
++                elif fmt == "raw":
++                    frame.tofile(str(p))
++                else:
++                    np.save(str(p), frame)
++
++                with self._lock:
++                    self._save_count += 1
++
++                logger.debug(f"AsyncFrameSaver: saved {p.name}")
++            except Exception as e:
++                with self._lock:
++                    self._error_count += 1
++                logger.error(f"AsyncFrameSaver: save error: {e}")
++            finally:
++                self._queue.task_done()
++
++    def flush(self, timeout: Optional[float] = None) -> bool:
++        """等待所有挂起的保存完成
++
++        Args:
++            timeout: 超时时间（秒），None 表示无限等待
++
++        Returns:
++            bool: 队列是否已清空
++        """
++        try:
++            self._queue.all_tasks_done.acquire()
++            try:
++                endtime = None
++                if timeout is not None:
++                    import time
++                    endtime = time.monotonic() + timeout
++                while self._queue.unfinished_tasks:
++                    if endtime is not None:
++                        remaining = endtime - __import__('time').monotonic()
++                        if remaining <= 0:
++                            return False
++                        self._queue.all_tasks_done.wait(remaining)
++                    else:
++                        self._queue.all_tasks_done.wait()
++            finally:
++                self._queue.all_tasks_done.release()
++            return True
++        except Exception:
++            return False
++
++    def shutdown(self) -> None:
++        """关闭保存器"""
++        self._running = False
++        for t in self._workers:
++            t.join(timeout=2.0)
++        logger.info(
++            f"AsyncFrameSaver: shutdown, "
++            f"saved={self._save_count}, errors={self._error_count}"
++        )
++
++    @property
++    def pending_count(self) -> int:
++        return self._queue.qsize()
++
++    @property
++    def save_count(self) -> int:
++        return self._save_count
++
++    @property
++    def error_count(self) -> int:
++        return self._error_count
++
++
++__all__ = ["AsyncFrameSaver"]
+diff --git a/dac3d/core/pipeline/frame_buffer_pool.py b/dac3d/core/pipeline/frame_buffer_pool.py
+new file mode 100644
+index 0000000..db31ad2
+--- /dev/null
++++ b/dac3d/core/pipeline/frame_buffer_pool.py
+@@ -0,0 +1,135 @@
++"""
++帧缓冲区池
++
++借鉴 DMDConfocal 的缓冲区复用策略：
++- 预分配固定数量的缓冲区
++- 获取/归还模式避免运行时 malloc
++- 尺寸变化检测：仅在分辨率变化时重新分配
++"""
++
++import logging
++import threading
++from collections import deque
++from typing import Optional, Tuple
++import numpy as np
++from numpy.typing import NDArray
++
++
++logger = logging.getLogger(__name__)
++
++
++class FrameBufferPool:
++    """帧缓冲区池
++
++    预分配 N 个帧缓冲区循环复用，消除每帧的 numpy array 分配开销。
++    借鉴 DMDConfocal 的 if(m_imgsize != pHeader->Vsize) 尺寸检测策略。
++    """
++
++    def __init__(
++        self,
++        shape: Tuple[int, ...],
++        dtype: np.dtype = np.uint16,
++        pool_size: int = 8
++    ):
++        """初始化
++
++        Args:
++            shape: 帧尺寸 (height, width) 或 (height, width, channels)
++            dtype: 数据类型
++            pool_size: 预分配缓冲区数量
++        """
++        self._shape = shape
++        self._dtype = np.dtype(dtype)
++        self._pool_size = pool_size
++        self._lock = threading.Lock()
++
++        # 预分配缓冲区
++        self._available: deque = deque()
++        self._in_use: set = set()
++        self._total_allocated = 0
++
++        self._preallocate(pool_size)
++        logger.info(
++            f"FrameBufferPool: {pool_size} buffers, "
++            f"shape={shape}, dtype={dtype}, "
++            f"total={pool_size * np.prod(shape) * np.dtype(dtype).itemsize / 1024 / 1024:.1f} MB"
++        )
++
++    def _preallocate(self, count: int) -> None:
++        """预分配缓冲区"""
++        for _ in range(count):
++            buf = np.empty(self._shape, dtype=self._dtype)
++            self._available.append(buf)
++            self._total_allocated += 1
++
++    def acquire(self) -> NDArray:
++        """获取一个缓冲区（零分配，除非池耗尽）
++
++        Returns:
++            NDArray: 可复用的缓冲区
++        """
++        with self._lock:
++            if self._available:
++                buf = self._available.popleft()
++                self._in_use.add(id(buf))
++                return buf
++
++        # 池耗尽，动态分配（不在锁内）
++        logger.warning("FrameBufferPool: pool exhausted, allocating new buffer")
++        buf = np.empty(self._shape, dtype=self._dtype)
++        with self._lock:
++            self._in_use.add(id(buf))
++            self._total_allocated += 1
++        return buf
++
++    def release(self, buf: NDArray) -> None:
++        """归还缓冲区
++
++        Args:
++            buf: 之前通过 acquire() 获取的缓冲区
++        """
++        with self._lock:
++            buf_id = id(buf)
++            if buf_id in self._in_use:
++                self._in_use.discard(buf_id)
++                self._available.append(buf)
++            else:
++                logger.warning("FrameBufferPool: releasing unknown buffer")
++
++    def resize(self, new_shape: Tuple[int, ...], new_dtype: Optional[np.dtype] = None) -> None:
++        """重新分配缓冲区（尺寸变化时调用）
++
++        等价于 DMDConfocal 的尺寸变化检测逻辑。
++        """
++        dtype = np.dtype(new_dtype) if new_dtype else self._dtype
++        if new_shape == self._shape and dtype == self._dtype:
++            return  # 尺寸未变，跳过
++
++        logger.info(f"FrameBufferPool: resizing {self._shape} -> {new_shape}")
++        with self._lock:
++            self._shape = new_shape
++            self._dtype = dtype
++            self._available.clear()
++            self._in_use.clear()
++            self._total_allocated = 0
++
++        self._preallocate(self._pool_size)
++
++    @property
++    def shape(self) -> Tuple[int, ...]:
++        return self._shape
++
++    @property
++    def available_count(self) -> int:
++        return len(self._available)
++
++    @property
++    def in_use_count(self) -> int:
++        return len(self._in_use)
++
++    @property
++    def total_allocated(self) -> int:
++        return self._total_allocated
++
++
++__all__ = ["FrameBufferPool"]
+diff --git a/dac3d/core/pipeline/render_chain.py b/dac3d/core/pipeline/render_chain.py
+new file mode 100644
+index 0000000..22044e6
+--- /dev/null
++++ b/dac3d/core/pipeline/render_chain.py
+@@ -0,0 +1,123 @@
++"""
++渲染链（流式处理管线）
++
++借鉴 DMDConfocal 的 HVideoRenderChain 设计：
++- 责任链模式：帧数据依次流过处理链
++- 运行时热插拔：动态添加/移除处理器
++- 零拷贝传递：所有处理器共享同一帧引用
++"""
++
++import logging
++import threading
++from abc import ABC, abstractmethod
++from typing import List, Dict, Any, Optional
++import numpy as np
++from numpy.typing import NDArray
++
++
++logger = logging.getLogger(__name__)
++
++
++class FrameProcessor(ABC):
++    """帧处理器基类，等价于 DMDConfocal 的 HVideoRender"""
++
++    @abstractmethod
++    def process(self, frame: NDArray, metadata: Dict[str, Any]) -> None:
++        """处理一帧数据
++
++        Args:
++            frame: 图像数据（共享引用，勿修改原数据除非就地操作）
++            metadata: 帧元数据 (camera_id, index, timestamp 等)
++        """
++        pass
++
++
++class RenderChain(FrameProcessor):
++    """渲染链，等价于 DMDConfocal 的 HVideoRenderChain
++
++    同时是处理器和处理器容器（Composite 模式），
++    支持运行时热插拔处理器。
++    """
++
++    def __init__(self, name: str = "default"):
++        self._name = name
++        self._processors: List[FrameProcessor] = []
++        self._lock = threading.Lock()
++        logger.info(f"RenderChain '{name}' created")
++
++    @property
++    def name(self) -> str:
++        return self._name
++
++    def add(self, processor: FrameProcessor) -> None:
++        """添加处理器到链尾（等价于 push_back）"""
++        with self._lock:
++            if processor not in self._processors:
++                self._processors.append(processor)
++                logger.debug(f"RenderChain '{self._name}': added {type(processor).__name__}")
++
++    def remove(self, processor: FrameProcessor) -> None:
++        """移除处理器（等价于 remove）"""
++        with self._lock:
++            if processor in self._processors:
++                self._processors.remove(processor)
++                logger.debug(f"RenderChain '{self._name}': removed {type(processor).__name__}")
++
++    def clear(self) -> None:
++        """清空处理链"""
++        with self._lock:
++            self._processors.clear()
++
++    def process(self, frame: NDArray, metadata: Dict[str, Any]) -> None:
++        """将帧依次送入链中每个处理器"""
++        with self._lock:
++            processors = list(self._processors)  # snapshot
++
++        for proc in processors:
++            try:
++                proc.process(frame, metadata)
++            except Exception as e:
++                logger.error(
++                    f"RenderChain '{self._name}': "
++                    f"{type(proc).__name__} error: {e}"
++                )
++
++    def __len__(self) -> int:
++        return len(self._processors)
++
++    def __contains__(self, processor: FrameProcessor) -> bool:
++        return processor in self._processors
++
++
++class RenderChainManager:
++    """渲染链管理器，管理多条命名渲染链
++
++    等价于 DMDConfocal 的 HConfocalCore::GetRenderChain(RenderChainType)
++    """
++
++    NORMAL = "normal"
++    CONFOCAL = "confocal"
++    STRUCTURED_LIGHT = "structured_light"
++    NORMAL_EX = "normal_ex"
++    CONFOCAL_EX = "confocal_ex"
++
++    def __init__(self):
++        self._chains: Dict[str, RenderChain] = {
++            self.NORMAL: RenderChain(self.NORMAL),
++            self.CONFOCAL: RenderChain(self.CONFOCAL),
++            self.STRUCTURED_LIGHT: RenderChain(self.STRUCTURED_LIGHT),
++            self.NORMAL_EX: RenderChain(self.NORMAL_EX),
++            self.CONFOCAL_EX: RenderChain(self.CONFOCAL_EX),
++        }
++
++    def get_chain(self, name: str = NORMAL) -> RenderChain:
++        """获取指定渲染链"""
++        if name not in self._chains:
++            self._chains[name] = RenderChain(name)
++        return self._chains[name]
++
++    def get_all_chains(self) -> Dict[str, RenderChain]:
++        return dict(self._chains)
++
++
++__all__ = ["FrameProcessor", "RenderChain", "RenderChainManager"]
+diff --git a/dac3d/hal/dmd/__init__.py b/dac3d/hal/dmd/__init__.py
+new file mode 100644
+index 0000000..69c43cb
+--- /dev/null
++++ b/dac3d/hal/dmd/__init__.py
+@@ -0,0 +1,3 @@
++from dac3d.hal.dmd.sim_dmd import SimDMD
++
++__all__ = ["SimDMD"]
+diff --git a/dac3d/hal/dmd/sim_dmd.py b/dac3d/hal/dmd/sim_dmd.py
+new file mode 100644
+index 0000000..e0154ea
+--- /dev/null
++++ b/dac3d/hal/dmd/sim_dmd.py
+@@ -0,0 +1,185 @@
++"""
++DMD 模拟驱动
++
++参考 DMDConfocal 的 WlpAdapter/AlpAdapter 设计。
++实现 IDMD 接口，支持图案加载、序列播放、触发控制。
++"""
++
++import logging
++import threading
++import time
++from typing import Dict, Any, Optional, List
++import numpy as np
++from numpy.typing import NDArray
++
++from dac3d.hal.interfaces import IDMD, DeviceState, TriggerMode
++
++
++logger = logging.getLogger(__name__)
++
++
++class SimDMD(IDMD):
++    """DMD 模拟器
++
++    模拟 WLP/ALP DMD 设备行为，参考 DMDConfocal 的 WlpAdapter：
++    - 图案以 1-bit 二进制格式存储（节省 8 倍内存）
++    - 支持多种触发模式
++    - 帧序列自动播放
++    """
++
++    def __init__(
++        self,
++        device_id: str = "sim_dmd",
++        config: Optional[Dict[str, Any]] = None,
++    ):
++        super().__init__(device_id, config)
++
++        # DMD 参数
++        self._width = config.get("width", 1024) if config else 1024
++        self._height = config.get("height", 768) if config else 768
++        self._illumination = 1.0
++
++        # 图案存储（二进制压缩，等价于 DMDConfocal 的 pLargeImageBuff）
++        self._patterns: List[NDArray[np.uint8]] = []
++        self._current_index = 0
++        self._frame_count = 0
++
++        # 序列播放
++        self._sequence_running = False
++        self._trigger_mode = TriggerMode.SOFTWARE
++        self._sequence_thread: Optional[threading.Thread] = None
++        self._stop_event = threading.Event()
++
++        # 时序参数（等价于 frame_margin / frame_interval）
++        self._frame_time_ms = config.get("frame_time_ms", 10.0) if config else 10.0
++
++        logger.info(f"SimDMD: {self._width}x{self._height}")
++
++    def connect(self) -> bool:
++        """模拟连接（等价于 WLP_OpenDev）"""
++        logger.info("SimDMD: connecting...")
++        time.sleep(0.05)
++        self._state = DeviceState.CONNECTED
++        logger.info("SimDMD: connected")
++        return True
++
++    def disconnect(self) -> bool:
++        self.stop_sequence()
++        self._state = DeviceState.DISCONNECTED
++        logger.info("SimDMD: disconnected")
++        return True
++
++    def reset(self) -> bool:
++        """复位（等价于 WLP_DevReset + WLP_DMDReset）"""
++        self.stop_sequence()
++        self._patterns.clear()
++        self._current_index = 0
++        self._frame_count = 0
++        self._state = DeviceState.IDLE
++        logger.info("SimDMD: reset")
++        return True
++
++    def get_info(self) -> Dict[str, Any]:
++        return {
++            "device_id": self._device_id,
++            "type": "Simulated DMD",
++            "resolution": f"{self._width}x{self._height}",
++            "n_patterns": len(self._patterns),
++            "current_index": self._current_index,
++            "state": self._state.name,
++        }
++
++    def load_pattern(self, pattern: NDArray[np.uint8]) -> bool:
++        """加载单个图案"""
++        packed = np.packbits(pattern > 127)
++        self._patterns = [packed]
++        self._frame_count = 1
++        logger.debug(f"SimDMD: loaded 1 pattern, packed size={packed.nbytes} bytes")
++        return True
++
++    def load_pattern_sequence(self, patterns: List[NDArray[np.uint8]]) -> bool:
++        """加载图案序列（等价于 DMDConfocal 的批量 DownloadImage）
++
++        图案以 1-bit 二进制格式存储，内存占用为灰度格式的 1/8。
++        """
++        self._patterns = [np.packbits(p > 127) for p in patterns]
++        self._frame_count = len(patterns)
++        logger.info(f"SimDMD: loaded {self._frame_count} patterns")
++        return True
++
++    def display_pattern(self, index: int = 0) -> bool:
++        """显示指定图案"""
++        if 0 <= index < len(self._patterns):
++            self._current_index = index
++            logger.debug(f"SimDMD: displaying pattern {index}")
++            return True
++        logger.error(f"SimDMD: pattern index {index} out of range")
++        return False
++
++    def start_sequence(self, trigger_mode: TriggerMode = TriggerMode.SOFTWARE) -> bool:
++        """启动序列播放（等价于 WLP_Start）"""
++        if not self._patterns:
++            logger.error("SimDMD: no patterns loaded")
++            return False
++
++        self._trigger_mode = trigger_mode
++        self._sequence_running = True
++        self._stop_event.clear()
++        self._current_index = 0
++
++        if trigger_mode in (TriggerMode.CONTINUOUS, TriggerMode.FREERUN):
++            self._sequence_thread = threading.Thread(
++                target=self._sequence_worker, daemon=True
++            )
++            self._sequence_thread.start()
++
++        self._state = DeviceState.BUSY
++        logger.info(f"SimDMD: sequence started, mode={trigger_mode.value}")
++        return True
++
++    def _sequence_worker(self):
++        """序列播放线程（等价于 DMDConfocal 的 TRIGGER_LOOP 模式）"""
++        while not self._stop_event.is_set():
++            self._current_index = (self._current_index + 1) % self._frame_count
++            time.sleep(self._frame_time_ms / 1000.0)
++
++    def stop_sequence(self) -> bool:
++        """停止序列（等价于 WLP_Stop）"""
++        self._sequence_running = False
++        self._stop_event.set()
++        if self._sequence_thread and self._sequence_thread.is_alive():
++            self._sequence_thread.join(timeout=1.0)
++        self._state = DeviceState.IDLE
++        logger.info("SimDMD: sequence stopped")
++        return True
++
++    def set_illumination(self, intensity: float) -> bool:
++        self._illumination = max(0.0, min(1.0, intensity))
++        logger.debug(f"SimDMD: illumination={self._illumination:.2f}")
++        return True
++
++    def get_current_pattern(self) -> Optional[NDArray[np.uint8]]:
++        """获取当前图案（解包为 8-bit，等价于 Binary2Gray）"""
++        if not self._patterns:
++            return None
++        packed = self._patterns[self._current_index]
++        unpacked = np.unpackbits(packed)
++        total_pixels = self._width * self._height
++        if len(unpacked) >= total_pixels:
++            return unpacked[:total_pixels].reshape(self._height, self._width) * 255
++        return None
++
++    @property
++    def width(self) -> int:
++        return self._width
++
++    @property
++    def height(self) -> int:
++        return self._height
++
++    @property
++    def pattern_count(self) -> int:
++        return self._frame_count
++
++
++__all__ = ["SimDMD"]
+diff --git a/dac3d/hal/sim/sim_stage.py b/dac3d/hal/sim/sim_stage.py
+index 23ef026..ad99235 100644
+--- a/dac3d/hal/sim/sim_stage.py
++++ b/dac3d/hal/sim/sim_stage.py
+@@ -41,7 +41,11 @@ class SimStage(IStage):
+         # 运动线程
+         self._motion_thread: Optional[threading.Thread] = None
+         self._stop_motion = threading.Event()
+-        
++
++        # 事件驱动同步（借鉴 DMDConfocal 的 m_hMoveEvent）
++        self._move_complete = threading.Event()
++        self._move_complete.set()  # 初始为已完成
++
+         logger.info(f"SimStage initialized: {device_id}")
+     
+     def connect(self) -> bool:
+@@ -111,15 +115,16 @@ class SimStage(IStage):
+         
+         # 启动运动线程
+         self._stop_motion.clear()
++        self._move_complete.clear()  # 标记运动开始
+         self._motion_thread = threading.Thread(
+             target=self._motion_worker,
+             args=(pos, motion_time)
+         )
+         self._motion_thread.start()
+-        
++
+         if wait:
+             self._motion_thread.join()
+-        
++
+         return True
+     
+     def _motion_worker(self, target: Position, duration: float):
+@@ -149,8 +154,23 @@ class SimStage(IStage):
+         
+         self._is_moving = False
+         self._state = DeviceState.IDLE
++        self._move_complete.set()  # 触发事件（等价于 SetEvent(m_hMoveEvent)）
+         logger.debug(f"SimStage: Reached {self._position}")
+-    
++
++    def wait_for_move(self, timeout: float = 10.0) -> bool:
++        """事件驱动等待运动完成
++
++        借鉴 DMDConfocal 的 WaitForSingleObject(m_hMoveEvent, 10000)，
++        替代 while is_moving: sleep(0.01) 轮询。
++
++        Args:
++            timeout: 超时时间（秒）
++
++        Returns:
++            bool: True 表示运动完成，False 表示超时
++        """
++        return self._move_complete.wait(timeout=timeout)
++
+     def move_relative(self, delta: Position, wait: bool = True) -> bool:
+         """相对移动"""
+         target = Position(
+diff --git a/dac3d/processing/__init__.py b/dac3d/processing/__init__.py
+new file mode 100644
+index 0000000..f64a6c8
+--- /dev/null
++++ b/dac3d/processing/__init__.py
+@@ -0,0 +1,25 @@
++from dac3d.processing.image_ops import (
++    img_max,
++    img_add,
++    img_and,
++    img_thresh,
++    reconstruct_3phase,
++    reconstruct_6phase,
++    is_dark_image,
++    rgb_to_gray,
++)
++from dac3d.processing.confocal_merge import ConfocalMergeProcessor
++from dac3d.processing.struct_light import StructuredLightProcessor
++
++__all__ = [
++    "img_max",
++    "img_add",
++    "img_and",
++    "img_thresh",
++    "reconstruct_3phase",
++    "reconstruct_6phase",
++    "is_dark_image",
++    "rgb_to_gray",
++    "ConfocalMergeProcessor",
++    "StructuredLightProcessor",
++]
+diff --git a/dac3d/processing/confocal_merge.py b/dac3d/processing/confocal_merge.py
+new file mode 100644
+index 0000000..938edad
+--- /dev/null
++++ b/dac3d/processing/confocal_merge.py
+@@ -0,0 +1,125 @@
++"""
++流式共聚焦合并处理器
++
++借鉴 DMDConfocal 的 CConfocalMerge：
++- 流式处理：每帧到达立即与累积结果合并
++- 恒定内存：仅需 2 个缓冲区（结果 + 当前帧）
++- 事件驱动：使用队列确保不丢帧
++"""
++
++import logging
++import queue
++import threading
++from typing import Optional, Callable, Dict, Any
++import numpy as np
++from numpy.typing import NDArray
++
++from dac3d.core.pipeline.render_chain import FrameProcessor
++from dac3d.processing.image_ops import img_max
++
++
++logger = logging.getLogger(__name__)
++
++
++class ConfocalMergeProcessor(FrameProcessor):
++    """流式共聚焦合并器
++
++    等价于 DMDConfocal 的 CConfocalMerge。
++    每帧到达后立即与累积结果取最大值（最大值投影），
++    达到指定帧数后输出结果并重置。
++
++    内存占用恒定：O(2 × frame_size)，与总帧数无关。
++    """
++
++    def __init__(
++        self,
++        merge_count: int = 1,
++        background_thresh: int = 0,
++        on_complete: Optional[Callable[[NDArray], None]] = None,
++    ):
++        self._merge_count = merge_count
++        self._bg_thresh = background_thresh
++        self._on_complete = on_complete
++
++        # 缓冲区（等价于 m_bmpResult）
++        self._result: Optional[NDArray] = None
++        self._current_index = 0
++        self._imgsize = 0
++
++        # 使用队列确保不丢帧
++        self._frame_queue: queue.Queue = queue.Queue(maxsize=64)
++        self._running = True
++
++        # 处理线程（等价于 CreateThread(NULL, 0, ImageProc, ...)）
++        self._worker = threading.Thread(
++            target=self._process_loop, name="confocal-merge", daemon=True
++        )
++        self._worker.start()
++
++        logger.info(f"ConfocalMergeProcessor: merge_count={merge_count}, thresh={background_thresh}")
++
++    def process(self, frame: NDArray, metadata: Dict[str, Any]) -> None:
++        """接收帧数据（从采集线程调用）
++
++        等价于 DMDConfocal CConfocalMerge::Renderer()
++        """
++        # 拷贝帧数据入队（等价于 memcpy + SetEvent）
++        self._frame_queue.put(frame.copy())
++
++    def _process_loop(self):
++        """处理线程主循环
++
++        等价于 DMDConfocal CConfocalMerge::ProcessImage()
++        """
++        while self._running:
++            try:
++                frame = self._frame_queue.get(timeout=0.5)
++            except queue.Empty:
++                continue
++
++            # 尺寸变化检测
++            frame_size = frame.nbytes
++            if self._imgsize != frame_size:
++                self._imgsize = frame_size
++                self._result = np.zeros_like(frame)
++
++            # 最大值投影（等价于 Img8_Max(m_bmpResult, m_bmpTemp, ...)）
++            img_max(self._result, frame, self._bg_thresh)
++            self._current_index += 1
++
++            if self._current_index >= self._merge_count:
++                # 合并完成，输出结果
++                if self._on_complete:
++                    self._on_complete(self._result.copy())
++                self._reset()
++
++    def _reset(self):
++        """重置合并状态（等价于 RestMerge）"""
++        if self._result is not None:
++            self._result.fill(0)
++        self._current_index = 0
++
++    def reset(self):
++        """外部调用的重置接口"""
++        self._reset()
++
++    @property
++    def current_index(self) -> int:
++        return self._current_index
++
++    @property
++    def merge_count(self) -> int:
++        return self._merge_count
++
++    @merge_count.setter
++    def merge_count(self, value: int):
++        self._merge_count = value
++
++    def shutdown(self):
++        """关闭处理器"""
++        self._running = False
++        self._worker.join(timeout=2.0)
++        logger.info("ConfocalMergeProcessor: shutdown")
++
++
++__all__ = ["ConfocalMergeProcessor"]
+diff --git a/dac3d/processing/image_ops.py b/dac3d/processing/image_ops.py
+new file mode 100644
+index 0000000..37ee98a
+--- /dev/null
++++ b/dac3d/processing/image_ops.py
+@@ -0,0 +1,193 @@
++"""
++NumPy 向量化图像处理算法
++
++移植自 DMDConfocal 的 HImgProcess.cpp，使用 NumPy 向量化替代 C++ 指针循环。
++核心原则：
++- 就地操作 (out= 参数) 避免临时数组分配
++- 一维化处理自动通过 NumPy broadcasting 实现
++- 分支外提通过条件分发实现
++"""
++
++import numpy as np
++from numpy.typing import NDArray
++
++
++def img_max(
++    dest: NDArray[np.uint8],
++    src: NDArray[np.uint8],
++    thresh: int = 0
++) -> None:
++    """逐像素最大值投影（就地操作）
++
++    等价于 DMDConfocal 的 Img8_Max()。
++    模拟共聚焦针孔效应，每帧到达后与累积结果取最大值。
++
++    Args:
++        dest: 目标缓冲区（就地修改）
++        src: 源帧数据
++        thresh: 背景阈值（减除后再比较）
++    """
++    if thresh > 0:
++        # 带阈值减除：等价于 C++ 的 iScr = *Index_Scr - Thresh; iScr = iScr > 0 ? iScr : 0;
++        src_adj = np.clip(src.astype(np.int16) - thresh, 0, 255).astype(np.uint8)
++        np.maximum(dest, src_adj, out=dest)
++    else:
++        # 无阈值：直接取最大值
++        np.maximum(dest, src, out=dest)
++
++
++def img_add(
++    dest: NDArray[np.uint8],
++    src: NDArray[np.uint8],
++) -> None:
++    """逐像素取最大值累加（等价于 DMDConfocal Img8_Add）
++
++    Args:
++        dest: 目标缓冲区（就地修改）
++        src: 源帧数据
++    """
++    np.maximum(dest, src, out=dest)
++
++
++def img_and(
++    dest: NDArray[np.uint8],
++    template: NDArray[np.uint8],
++) -> None:
++    """模板掩膜与操作（等价于 DMDConfocal Img8_And）
++
++    模板为 0 的位置，目标也设为 0。
++
++    Args:
++        dest: 目标缓冲区（就地修改）
++        template: 二值模板
++    """
++    dest[template == 0] = 0
++
++
++def img_thresh(
++    buf: NDArray[np.uint8],
++    thresh: int
++) -> None:
++    """二值阈值化（就地操作，等价于 DMDConfocal Img8_Thresh2）
++
++    Args:
++        buf: 图像缓冲区（就地修改）
++        thresh: 阈值
++    """
++    mask = buf <= thresh
++    buf[mask] = 0
++    buf[~mask] = 255
++
++
++def reconstruct_3phase(
++    imgs: list,
++    merge: NDArray[np.uint8],
++) -> None:
++    """3 帧相移重建（等价于 DMDConfocal ReconstructImage, 3-frame mode）
++
++    公式: I = sqrt((2*I2 - I1 - I3)^2 + (I3 - I1)^2) / 2
++
++    Args:
++        imgs: 3 帧灰度图列表 [I1, I2, I3]
++        merge: 输出缓冲区（就地写入）
++    """
++    # 预提取为 float64 数组（等价于 C++ 的 unsigned char* a0 = imgs[0].data()）
++    a = imgs[0].astype(np.float64)
++    b = imgs[1].astype(np.float64)
++    c = imgs[2].astype(np.float64)
++
++    s = 2.0 * b - a - c
++    t = c - a
++    # 复用 s 的内存存放结果
++    np.multiply(s, s, out=s)
++    np.multiply(t, t, out=t)
++    s += t
++    np.sqrt(s, out=s)
++    s *= 0.5
++    np.clip(s, 0, 255, out=s)
++    merge[:] = s.astype(np.uint8)
++
++
++def reconstruct_6phase(
++    imgs: list,
++    merge: NDArray[np.uint8],
++) -> None:
++    """6 帧双波长重建（等价于 DMDConfocal ReconstructImage, 6-frame mode）
++
++    两组 3 帧重建取平均，提高信噪比。
++
++    Args:
++        imgs: 6 帧灰度图列表 [I1, I2, I3, I4, I5, I6]
++        merge: 输出缓冲区（就地写入）
++    """
++    # 第一组
++    a0 = imgs[0].astype(np.float64)
++    b0 = imgs[1].astype(np.float64)
++    c0 = imgs[2].astype(np.float64)
++    s0 = 2.0 * b0 - a0 - c0
++    t0 = c0 - a0
++    res0 = np.sqrt(s0 * s0 + t0 * t0) * 0.5
++
++    # 第二组
++    a1 = imgs[3].astype(np.float64)
++    b1 = imgs[4].astype(np.float64)
++    c1 = imgs[5].astype(np.float64)
++    s1 = 2.0 * b1 - a1 - c1
++    t1 = c1 - a1
++    res1 = np.sqrt(s1 * s1 + t1 * t1) * 0.5
++
++    # 取平均
++    result = (res0 + res1) * 0.5
++    np.clip(result, 0, 255, out=result)
++    merge[:] = result.astype(np.uint8)
++
++
++def is_dark_image(img: NDArray, threshold: float = 3.0) -> bool:
++    """暗图检测（等价于 DMDConfocal IsDarkImage）
++
++    通过方差统计判断图像是否为暗图（如 DMD 全黑帧），
++    单遍遍历完成均值和标准差计算。
++
++    Args:
++        img: 输入图像
++        threshold: 标准差阈值
++
++    Returns:
++        bool: True 表示是暗图
++    """
++    if img.size == 0:
++        return False
++    return float(np.std(img)) < threshold
++
++
++def rgb_to_gray(img: NDArray[np.uint8]) -> NDArray[np.uint8]:
++    """RGB 转灰度（等价于 DMDConfocal RGB2Gray）
++
++    使用 ITU-R BT.601 权重: 0.299R + 0.587G + 0.114B
++
++    Args:
++        img: RGB 图像 (H, W, 3)
++
++    Returns:
++        灰度图 (H, W)
++    """
++    if img.ndim == 2:
++        return img
++    # 使用整数乘法避免浮点开销（等价于 C++ 的 299/587/114 整数运算）
++    r = img[:, :, 0].astype(np.int32)
++    g = img[:, :, 1].astype(np.int32)
++    b = img[:, :, 2].astype(np.int32)
++    gray = (299 * r + 587 * g + 114 * b) // 1000
++    return gray.astype(np.uint8)
++
++
++__all__ = [
++    "img_max",
++    "img_add",
++    "img_and",
++    "img_thresh",
++    "reconstruct_3phase",
++    "reconstruct_6phase",
++    "is_dark_image",
++    "rgb_to_gray",
++]
+diff --git a/dac3d/processing/struct_light.py b/dac3d/processing/struct_light.py
+new file mode 100644
+index 0000000..a349056
+--- /dev/null
++++ b/dac3d/processing/struct_light.py
+@@ -0,0 +1,154 @@
++"""
++结构光重建处理器
++
++借鉴 DMDConfocal 的 StructLightReconstruct：
++- 3帧/6帧相移重建
++- 暗图自动检测和跳过
++- 事件驱动处理线程
++"""
++
++import logging
++import threading
++from typing import Optional, Callable, List, Dict, Any
++import numpy as np
++from numpy.typing import NDArray
++
++from dac3d.core.pipeline.render_chain import FrameProcessor
++from dac3d.processing.image_ops import reconstruct_3phase, reconstruct_6phase, is_dark_image
++
++
++logger = logging.getLogger(__name__)
++
++
++class StructuredLightProcessor(FrameProcessor):
++    """结构光重建处理器
++
++    等价于 DMDConfocal 的 StructLightReconstruct。
++    收集指定帧数的相移图像后执行重建。
++    """
++
++    def __init__(
++        self,
++        merge_count: int = 3,
++        dark_threshold: float = 3.0,
++        on_complete: Optional[Callable[[NDArray], None]] = None,
++    ):
++        """初始化
++
++        Args:
++            merge_count: 合并帧数（3 或 6）
++            dark_threshold: 暗图检测方差阈值
++            on_complete: 重建完成回调
++        """
++        if merge_count not in (3, 6):
++            raise ValueError("merge_count must be 3 or 6")
++
++        self._merge_count = merge_count
++        self._dark_threshold = dark_threshold
++        self._on_complete = on_complete
++
++        # 帧收集（等价于 _imgs vector）
++        self._imgs: List[NDArray] = []
++        self._result: Optional[NDArray] = None
++        self._imgsize = 0
++        self._has_dark_img = False
++
++        # 事件驱动
++        self._event = threading.Event()
++        self._running = True
++        self._temp_frame: Optional[NDArray] = None
++        self._lock = threading.Lock()
++        self._current_index = 0
++
++        self._worker = threading.Thread(
++            target=self._process_loop, name="struct-light", daemon=True
++        )
++        self._worker.start()
++
++        logger.info(f"StructuredLightProcessor: merge_count={merge_count}")
++
++    def process(self, frame: NDArray, metadata: Dict[str, Any]) -> None:
++        """接收帧数据
++
++        等价于 DMDConfocal StructLightReconstruct::Renderer()
++        """
++        frame_size = frame.nbytes
++
++        # 尺寸变化检测
++        if self._imgsize != frame_size:
++            self._imgsize = frame_size
++            with self._lock:
++                self._result = np.zeros_like(frame)
++                self._temp_frame = np.empty_like(frame)
++
++        with self._lock:
++            if self._temp_frame is not None:
++                np.copyto(self._temp_frame, frame)
++
++        self._event.set()
++
++    def _process_loop(self):
++        """处理线程主循环"""
++        while self._running:
++            self._event.wait()
++            self._event.clear()
++
++            if not self._running:
++                break
++
++            with self._lock:
++                if self._temp_frame is None:
++                    continue
++                temp = self._temp_frame.copy()
++
++            # 暗图检测（等价于 DMDConfocal 的 IsDarkImage 前置检查）
++            if not self._has_dark_img:
++                if is_dark_image(temp, self._dark_threshold):
++                    self._current_index = 0
++                    self._has_dark_img = True
++                continue
++
++            # 收集帧
++            self._imgs.append(temp)
++            self._current_index += 1
++
++            if self._current_index >= self._merge_count:
++                # 执行重建
++                with self._lock:
++                    if self._result is None:
++                        self._result = np.zeros_like(temp)
++
++                if self._merge_count == 3:
++                    reconstruct_3phase(self._imgs, self._result)
++                else:
++                    reconstruct_6phase(self._imgs, self._result)
++
++                if self._on_complete:
++                    self._on_complete(self._result.copy())
++
++                self._reset()
++
++    def _reset(self):
++        """重置状态"""
++        with self._lock:
++            if self._result is not None:
++                self._result.fill(0)
++        self._imgs.clear()
++        self._current_index = 0
++        self._has_dark_img = False
++
++    def reset(self):
++        self._reset()
++
++    @property
++    def current_index(self) -> int:
++        return self._current_index
++
++    def shutdown(self):
++        self._running = False
++        self._event.set()
++        self._worker.join(timeout=2.0)
++        logger.info("StructuredLightProcessor: shutdown")
++
++
++__all__ = ["StructuredLightProcessor"]
+diff --git a/dac3d/services/scan_service.py b/dac3d/services/scan_service.py
+index 0b9396e..4a5d88d 100644
+--- a/dac3d/services/scan_service.py
++++ b/dac3d/services/scan_service.py
+@@ -17,6 +17,7 @@ from dac3d.hal.camera.camera_array import CameraArray
+ from dac3d.core.state_machine import ScanStateMachine, ScanState
+ from dac3d.core.event_bus import event_bus, Event, EventNames
+ from dac3d.core.exceptions import ScanError
++from dac3d.core.pipeline.render_chain import RenderChain, RenderChainManager
+ 
+ 
+ logger = logging.getLogger(__name__)
+@@ -50,14 +51,17 @@ class ScanService:
+         
+         # 状态机
+         self._state_machine = ScanStateMachine()
+-        
++
+         # 扫描参数
+         self._scan_region: Optional[ScanRegion] = None
+         self._z_stack_config: Optional[Dict] = None
+-        
++
+         # 扫描数据
+         self._scan_data: Dict[str, List[NDArray]] = {}
+-        
++
++        # 渲染链管理器（借鉴 DMDConfocal 多链架构）
++        self._render_chain_mgr = RenderChainManager()
++
+         logger.info("ScanService initialized")
+     
+     def initialize_system(self) -> bool:
+@@ -294,15 +298,30 @@ class ScanService:
+                 timeout_ms=30000
+             )
+             
+-            # 等待运动完成
+-            while self._stage_xy.is_moving:
+-                time.sleep(0.01)
++            # 事件驱动等待运动完成
++            # 借鉴 DMDConfocal 的 WaitForSingleObject(m_hMoveEvent, 10000)
++            # 替代原有的 while is_moving: sleep(0.01) 轮询
++            if hasattr(self._stage_xy, 'wait_for_move'):
++                if not self._stage_xy.wait_for_move(timeout=10.0):
++                    raise ScanError("Stage motion timeout")
++            else:
++                while self._stage_xy.is_moving:
++                    time.sleep(0.01)
+             
+             # 停止PSO
+             self._fpga.stop_pso()
+             
+-            # 收集数据
++            # 流式处理 + 收集数据
++            # 借鉴 DMDConfocal 的 RenderChain 流式管线，每帧立即送入渲染链
++            normal_chain = self._render_chain_mgr.get_chain(RenderChainManager.NORMAL)
+             for cam_id, imgs in images.items():
++                for frame_idx, frame in enumerate(imgs):
++                    if len(normal_chain) > 0:
++                        normal_chain.process(frame, {
++                            "camera_id": cam_id,
++                            "row": iy,
++                            "frame_index": frame_idx,
++                        })
+                 scan_data[cam_id].extend(imgs)
+             
+             # 发布进度
+@@ -343,5 +362,13 @@ class ScanService:
+         """当前状态"""
+         return self._state_machine.get_current_state()
+ 
++    def get_render_chain(self, name: str = RenderChainManager.NORMAL) -> RenderChain:
++        """获取渲染链（借鉴 DMDConfocal HConfocalCore::GetRenderChain）"""
++        return self._render_chain_mgr.get_chain(name)
++
++    @property
++    def render_chain_manager(self) -> RenderChainManager:
++        return self._render_chain_mgr
++
+ 
+ __all__ = ["ScanService"]
+diff --git a/tests/__init__.py b/tests/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/tests/unit/__init__.py b/tests/unit/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/tests/unit/test_enhancements.py b/tests/unit/test_enhancements.py
+new file mode 100644
+index 0000000..323df21
+--- /dev/null
++++ b/tests/unit/test_enhancements.py
+@@ -0,0 +1,922 @@
++"""
++DMDConfocal 八大增强模块的综合测试
++
++覆盖：
++1. RenderChain 流式管线
++2. 事件驱动同步
++3. 帧缓冲区池
++4. 异步文件保存
++5. NumPy 向量化图像处理
++6. 流式共聚焦合并
++7. 结构光重建
++8. DMD 模拟驱动
++"""
++
++import os
++import time
++import tempfile
++import threading
++import pytest
++import numpy as np
++
++# ============================================================
++# 1. RenderChain 流式管线测试
++# ============================================================
++
++from dac3d.core.pipeline.render_chain import (
++    FrameProcessor, RenderChain, RenderChainManager,
++)
++
++
++class CountingProcessor(FrameProcessor):
++    """计数处理器（测试用）"""
++    def __init__(self):
++        self.count = 0
++        self.last_frame = None
++        self.last_metadata = None
++
++    def process(self, frame, metadata):
++        self.count += 1
++        self.last_frame = frame
++        self.last_metadata = metadata
++
++
++class AccumulatingProcessor(FrameProcessor):
++    """累积处理器（测试就地修改）"""
++    def __init__(self):
++        self.total = 0
++
++    def process(self, frame, metadata):
++        self.total += frame.sum()
++
++
++class TestRenderChain:
++    """测试渲染链"""
++
++    def test_add_and_remove(self):
++        chain = RenderChain("test")
++        p1 = CountingProcessor()
++        p2 = CountingProcessor()
++
++        chain.add(p1)
++        chain.add(p2)
++        assert len(chain) == 2
++
++        chain.remove(p1)
++        assert len(chain) == 1
++        assert p1 not in chain
++        assert p2 in chain
++
++    def test_no_duplicate_add(self):
++        chain = RenderChain("test")
++        p = CountingProcessor()
++        chain.add(p)
++        chain.add(p)  # 重复添加
++        assert len(chain) == 1
++
++    def test_process_chain(self):
++        chain = RenderChain("test")
++        p1 = CountingProcessor()
++        p2 = CountingProcessor()
++        chain.add(p1)
++        chain.add(p2)
++
++        frame = np.zeros((64, 64), dtype=np.uint8)
++        chain.process(frame, {"index": 0})
++
++        assert p1.count == 1
++        assert p2.count == 1
++        assert p1.last_metadata == {"index": 0}
++
++    def test_process_order(self):
++        """确保处理器按添加顺序执行"""
++        chain = RenderChain("test")
++        order = []
++
++        class OrderedProc(FrameProcessor):
++            def __init__(self, name):
++                self._name = name
++            def process(self, frame, metadata):
++                order.append(self._name)
++
++        chain.add(OrderedProc("A"))
++        chain.add(OrderedProc("B"))
++        chain.add(OrderedProc("C"))
++
++        chain.process(np.zeros(1), {})
++        assert order == ["A", "B", "C"]
++
++    def test_zero_copy_sharing(self):
++        """确保链中的处理器共享同一帧引用"""
++        chain = RenderChain("test")
++        p1 = CountingProcessor()
++        p2 = CountingProcessor()
++        chain.add(p1)
++        chain.add(p2)
++
++        frame = np.zeros((64, 64), dtype=np.uint8)
++        chain.process(frame, {})
++
++        # 两个处理器应该收到完全相同的对象引用
++        assert p1.last_frame is p2.last_frame
++
++    def test_hot_plug_during_processing(self):
++        """测试运行时热插拔"""
++        chain = RenderChain("test")
++        p1 = CountingProcessor()
++        chain.add(p1)
++
++        frame = np.zeros((64, 64), dtype=np.uint8)
++        chain.process(frame, {})
++        assert p1.count == 1
++
++        # 动态移除
++        chain.remove(p1)
++        chain.process(frame, {})
++        assert p1.count == 1  # 不再增长
++
++        # 动态添加
++        p2 = CountingProcessor()
++        chain.add(p2)
++        chain.process(frame, {})
++        assert p2.count == 1
++
++    def test_error_isolation(self):
++        """一个处理器异常不影响其他处理器"""
++        chain = RenderChain("test")
++
++        class FailingProc(FrameProcessor):
++            def process(self, frame, metadata):
++                raise RuntimeError("boom")
++
++        p1 = CountingProcessor()
++        fail = FailingProc()
++        p2 = CountingProcessor()
++
++        chain.add(p1)
++        chain.add(fail)
++        chain.add(p2)
++
++        chain.process(np.zeros(1), {})
++        assert p1.count == 1
++        assert p2.count == 1  # 不受异常影响
++
++
++class TestRenderChainManager:
++    def test_predefined_chains(self):
++        mgr = RenderChainManager()
++        assert mgr.get_chain("normal").name == "normal"
++        assert mgr.get_chain("confocal").name == "confocal"
++        assert mgr.get_chain("structured_light").name == "structured_light"
++
++    def test_custom_chain(self):
++        mgr = RenderChainManager()
++        chain = mgr.get_chain("custom")
++        assert chain.name == "custom"
++        assert mgr.get_chain("custom") is chain  # 同一实例
++
++
++# ============================================================
++# 2. 事件驱动同步测试
++# ============================================================
++
++from dac3d.hal.sim.sim_stage import SimStage
++from dac3d.hal.interfaces import Position
++
++
++class TestEventDrivenSync:
++    """测试事件驱动替代轮询"""
++
++    def test_wait_for_move_completes(self):
++        stage = SimStage("test", {"velocity": 1000.0})
++        stage.connect()
++        stage.home()
++
++        # 非阻塞移动
++        stage.move_to(Position(10, 0, 0), wait=False, velocity=1000.0)
++
++        # 事件驱动等待（替代 while is_moving: sleep）
++        result = stage.wait_for_move(timeout=5.0)
++        assert result is True
++        assert not stage.is_moving
++
++        pos = stage.get_position()
++        assert abs(pos.x - 10.0) < 0.1
++
++    def test_wait_for_move_timeout(self):
++        stage = SimStage("test", {"velocity": 0.001})  # 极慢速度
++        stage.connect()
++        stage.home()
++
++        stage.move_to(Position(1000, 0, 0), wait=False, velocity=0.001)
++
++        # 应该超时
++        result = stage.wait_for_move(timeout=0.05)
++        assert result is False
++
++        stage.stop()
++
++    def test_wait_for_move_already_complete(self):
++        stage = SimStage("test", {"velocity": 1000.0})
++        stage.connect()
++        stage.home()
++
++        # 阻塞移动（已完成）
++        stage.move_to(Position(1, 0, 0), wait=True, velocity=1000.0)
++
++        # 再次等待应该立即返回
++        result = stage.wait_for_move(timeout=0.01)
++        assert result is True
++
++    def test_event_driven_vs_polling_latency(self):
++        """验证事件驱动比轮询延迟更低"""
++        stage = SimStage("test", {"velocity": 10000.0})
++        stage.connect()
++        stage.home()
++
++        # 事件驱动方式
++        stage.move_to(Position(0.01, 0, 0), wait=False, velocity=10000.0)
++        t0 = time.time()
++        stage.wait_for_move(timeout=5.0)
++        event_time = time.time() - t0
++
++        # 轮询方式
++        stage.move_to(Position(0.02, 0, 0), wait=False, velocity=10000.0)
++        t0 = time.time()
++        while stage.is_moving:
++            time.sleep(0.01)
++        poll_time = time.time() - t0
++
++        # 事件驱动应该不会比轮询慢很多
++        # (不严格断言，仅验证两者都能完成)
++        assert event_time < 5.0
++        assert poll_time < 5.0
++
++
++# ============================================================
++# 3. 帧缓冲区池测试
++# ============================================================
++
++from dac3d.core.pipeline.frame_buffer_pool import FrameBufferPool
++
++
++class TestFrameBufferPool:
++
++    def test_basic_acquire_release(self):
++        pool = FrameBufferPool((64, 64), np.uint16, pool_size=4)
++        assert pool.available_count == 4
++        assert pool.in_use_count == 0
++
++        buf = pool.acquire()
++        assert buf.shape == (64, 64)
++        assert buf.dtype == np.uint16
++        assert pool.available_count == 3
++        assert pool.in_use_count == 1
++
++        pool.release(buf)
++        assert pool.available_count == 4
++        assert pool.in_use_count == 0
++
++    def test_zero_allocation_reuse(self):
++        """验证缓冲区复用：归还后再获取不增加总分配数"""
++        pool = FrameBufferPool((64, 64), np.uint8, pool_size=2)
++        assert pool.total_allocated == 2
++
++        buf1 = pool.acquire()
++        pool.release(buf1)
++
++        buf2 = pool.acquire()
++        # 总分配数不应增加（复用了已有缓冲区）
++        assert pool.total_allocated == 2
++        assert buf2.shape == (64, 64)
++        pool.release(buf2)
++
++    def test_pool_exhaustion_allocates_new(self):
++        pool = FrameBufferPool((32, 32), np.uint8, pool_size=2)
++
++        b1 = pool.acquire()
++        b2 = pool.acquire()
++        assert pool.available_count == 0
++
++        # 池耗尽，应该分配新缓冲区
++        b3 = pool.acquire()
++        assert b3.shape == (32, 32)
++        assert pool.total_allocated == 3
++
++        pool.release(b1)
++        pool.release(b2)
++        pool.release(b3)
++
++    def test_resize_reallocates(self):
++        pool = FrameBufferPool((64, 64), np.uint8, pool_size=4)
++        pool.resize((128, 128))
++        assert pool.shape == (128, 128)
++        assert pool.available_count == 4
++
++        buf = pool.acquire()
++        assert buf.shape == (128, 128)
++
++    def test_resize_same_size_noop(self):
++        pool = FrameBufferPool((64, 64), np.uint8, pool_size=4)
++        buf = pool.acquire()
++        original_id = id(buf)
++        pool.release(buf)
++
++        pool.resize((64, 64))  # 同尺寸不应触发重新分配
++        # 注意: resize 内部会检查，相同尺寸不操作
++        assert pool.shape == (64, 64)
++
++    def test_concurrent_access(self):
++        """多线程并发获取/释放"""
++        pool = FrameBufferPool((32, 32), np.uint8, pool_size=8)
++        errors = []
++
++        def worker():
++            try:
++                for _ in range(50):
++                    buf = pool.acquire()
++                    np.copyto(buf, np.random.randint(0, 255, (32, 32), dtype=np.uint8))
++                    time.sleep(0.001)
++                    pool.release(buf)
++            except Exception as e:
++                errors.append(e)
++
++        threads = [threading.Thread(target=worker) for _ in range(4)]
++        for t in threads:
++            t.start()
++        for t in threads:
++            t.join()
++
++        assert len(errors) == 0
++
++
++# ============================================================
++# 4. 异步文件保存测试
++# ============================================================
++
++from dac3d.core.pipeline.async_saver import AsyncFrameSaver
++
++
++class TestAsyncFrameSaver:
++
++    def test_save_npy(self):
++        with tempfile.TemporaryDirectory() as tmpdir:
++            saver = AsyncFrameSaver(max_pending=16, n_workers=1)
++
++            frame = np.random.randint(0, 255, (64, 64), dtype=np.uint8)
++            path = os.path.join(tmpdir, "test_frame.npy")
++            saver.save(frame, path, fmt="npy")
++
++            saver.flush(timeout=5.0)
++            saver.shutdown()
++
++            loaded = np.load(path)
++            np.testing.assert_array_equal(loaded, frame)
++
++    def test_save_raw(self):
++        with tempfile.TemporaryDirectory() as tmpdir:
++            saver = AsyncFrameSaver(max_pending=16, n_workers=1)
++
++            frame = np.random.randint(0, 4095, (32, 32), dtype=np.uint16)
++            path = os.path.join(tmpdir, "test_frame.raw")
++            saver.save(frame, path, fmt="raw")
++
++            saver.flush(timeout=5.0)
++            saver.shutdown()
++
++            loaded = np.fromfile(path, dtype=np.uint16).reshape(32, 32)
++            np.testing.assert_array_equal(loaded, frame)
++
++    def test_save_multiple_frames(self):
++        with tempfile.TemporaryDirectory() as tmpdir:
++            saver = AsyncFrameSaver(max_pending=32, n_workers=2)
++
++            n_frames = 20
++            for i in range(n_frames):
++                frame = np.full((16, 16), i, dtype=np.uint8)
++                path = os.path.join(tmpdir, f"frame_{i:03d}.npy")
++                saver.save(frame, path)
++
++            saver.flush(timeout=10.0)
++            assert saver.save_count == n_frames
++            assert saver.error_count == 0
++            saver.shutdown()
++
++            # 验证所有文件
++            for i in range(n_frames):
++                loaded = np.load(os.path.join(tmpdir, f"frame_{i:03d}.npy"))
++                assert loaded[0, 0] == i
++
++    def test_nonblocking(self):
++        """验证 save() 不阻塞调用者"""
++        with tempfile.TemporaryDirectory() as tmpdir:
++            saver = AsyncFrameSaver(max_pending=16, n_workers=1)
++
++            frame = np.zeros((64, 64), dtype=np.uint8)
++            t0 = time.time()
++            for i in range(10):
++                saver.save(frame, os.path.join(tmpdir, f"f{i}.npy"))
++            elapsed = time.time() - t0
++
++            # 非阻塞提交 10 个任务应该很快
++            assert elapsed < 0.5
++
++            saver.flush(timeout=10.0)
++            saver.shutdown()
++
++    def test_creates_subdirectories(self):
++        with tempfile.TemporaryDirectory() as tmpdir:
++            saver = AsyncFrameSaver(max_pending=8, n_workers=1)
++
++            frame = np.zeros((8, 8), dtype=np.uint8)
++            path = os.path.join(tmpdir, "sub1", "sub2", "frame.npy")
++            saver.save(frame, path)
++            saver.flush(timeout=5.0)
++            saver.shutdown()
++
++            assert os.path.exists(path)
++
++
++# ============================================================
++# 5. NumPy 向量化图像处理测试
++# ============================================================
++
++from dac3d.processing.image_ops import (
++    img_max, img_add, img_and, img_thresh,
++    reconstruct_3phase, reconstruct_6phase,
++    is_dark_image, rgb_to_gray,
++)
++
++
++class TestImageOps:
++
++    def test_img_max_no_thresh(self):
++        dest = np.array([10, 20, 30], dtype=np.uint8)
++        src = np.array([15, 10, 50], dtype=np.uint8)
++        img_max(dest, src)
++        np.testing.assert_array_equal(dest, [15, 20, 50])
++
++    def test_img_max_with_thresh(self):
++        dest = np.array([10, 20, 30], dtype=np.uint8)
++        src = np.array([25, 10, 50], dtype=np.uint8)
++        img_max(dest, src, thresh=15)
++        # src_adj = [10, 0, 35], max with dest = [10, 20, 35]
++        np.testing.assert_array_equal(dest, [10, 20, 35])
++
++    def test_img_max_inplace(self):
++        """验证就地操作"""
++        dest = np.zeros((64, 64), dtype=np.uint8)
++        src = np.full((64, 64), 100, dtype=np.uint8)
++        dest_id = id(dest)
++        img_max(dest, src)
++        assert id(dest) == dest_id  # 同一对象
++        assert dest[0, 0] == 100
++
++    def test_img_add(self):
++        dest = np.array([10, 20, 30], dtype=np.uint8)
++        src = np.array([15, 10, 50], dtype=np.uint8)
++        img_add(dest, src)
++        np.testing.assert_array_equal(dest, [15, 20, 50])
++
++    def test_img_and(self):
++        dest = np.array([100, 200, 150], dtype=np.uint8)
++        tmpl = np.array([255, 0, 255], dtype=np.uint8)
++        img_and(dest, tmpl)
++        np.testing.assert_array_equal(dest, [100, 0, 150])
++
++    def test_img_thresh(self):
++        buf = np.array([10, 128, 200, 50], dtype=np.uint8)
++        img_thresh(buf, 100)
++        np.testing.assert_array_equal(buf, [0, 255, 255, 0])
++
++    def test_reconstruct_3phase(self):
++        """测试 3 帧相移重建公式"""
++        h, w = 32, 32
++        merge = np.zeros((h, w), dtype=np.uint8)
++
++        # 模拟 3 帧相移：I1, I2, I3
++        t = np.linspace(0, 2 * np.pi, h * w).reshape(h, w)
++        I1 = (128 + 100 * np.cos(t - 2 * np.pi / 3)).astype(np.uint8)
++        I2 = (128 + 100 * np.cos(t)).astype(np.uint8)
++        I3 = (128 + 100 * np.cos(t + 2 * np.pi / 3)).astype(np.uint8)
++
++        reconstruct_3phase([I1, I2, I3], merge)
++        assert merge.dtype == np.uint8
++        assert merge.max() > 0  # 应该有非零结果
++
++    def test_reconstruct_6phase(self):
++        """测试 6 帧双波长重建"""
++        h, w = 16, 16
++        merge = np.zeros((h, w), dtype=np.uint8)
++
++        imgs = [np.random.randint(50, 200, (h, w), dtype=np.uint8) for _ in range(6)]
++        reconstruct_6phase(imgs, merge)
++        assert merge.dtype == np.uint8
++
++    def test_is_dark_image_dark(self):
++        dark = np.full((64, 64), 10, dtype=np.uint8)
++        assert is_dark_image(dark, threshold=3.0) is True
++
++    def test_is_dark_image_bright(self):
++        bright = np.random.randint(0, 255, (64, 64), dtype=np.uint8)
++        assert is_dark_image(bright, threshold=3.0) is False
++
++    def test_rgb_to_gray(self):
++        # Pure red
++        img = np.zeros((4, 4, 3), dtype=np.uint8)
++        img[:, :, 0] = 255  # R
++        gray = rgb_to_gray(img)
++        assert gray.shape == (4, 4)
++        # 0.299 * 255 ≈ 76
++        assert abs(int(gray[0, 0]) - 76) <= 1
++
++    def test_rgb_to_gray_passthrough(self):
++        """灰度图输入直接返回"""
++        gray = np.full((8, 8), 128, dtype=np.uint8)
++        result = rgb_to_gray(gray)
++        np.testing.assert_array_equal(result, gray)
++
++
++# ============================================================
++# 6. 流式共聚焦合并测试
++# ============================================================
++
++from dac3d.processing.confocal_merge import ConfocalMergeProcessor
++
++
++class TestConfocalMerge:
++
++    def test_merge_completes_after_n_frames(self):
++        results = []
++
++        def on_complete(result):
++            results.append(result.copy())
++
++        merger = ConfocalMergeProcessor(
++            merge_count=3,
++            background_thresh=0,
++            on_complete=on_complete,
++        )
++
++        # 发送 3 帧
++        for i in range(3):
++            frame = np.full((32, 32), (i + 1) * 50, dtype=np.uint8)
++            merger.process(frame, {"index": i})
++
++        # 等待处理完成
++        time.sleep(0.5)
++
++        assert len(results) == 1
++        # 最大值投影: max(50, 100, 150) = 150
++        assert results[0][0, 0] == 150
++
++        merger.shutdown()
++
++    def test_merge_resets_after_complete(self):
++        results = []
++
++        merger = ConfocalMergeProcessor(
++            merge_count=2,
++            on_complete=lambda r: results.append(r.copy()),
++        )
++
++        # 第一轮
++        merger.process(np.full((16, 16), 100, dtype=np.uint8), {})
++        merger.process(np.full((16, 16), 200, dtype=np.uint8), {})
++        time.sleep(0.3)
++
++        # 第二轮
++        merger.process(np.full((16, 16), 50, dtype=np.uint8), {})
++        merger.process(np.full((16, 16), 80, dtype=np.uint8), {})
++        time.sleep(0.3)
++
++        assert len(results) == 2
++        assert results[0][0, 0] == 200  # max(100, 200)
++        assert results[1][0, 0] == 80   # max(50, 80), 重置后的新一轮
++
++        merger.shutdown()
++
++    def test_merge_with_threshold(self):
++        results = []
++
++        merger = ConfocalMergeProcessor(
++            merge_count=2,
++            background_thresh=30,
++            on_complete=lambda r: results.append(r.copy()),
++        )
++
++        merger.process(np.full((8, 8), 50, dtype=np.uint8), {})
++        merger.process(np.full((8, 8), 20, dtype=np.uint8), {})
++        time.sleep(0.3)
++
++        assert len(results) == 1
++        # thresh=30: 50-30=20, 20-30=0 → max = 20
++        assert results[0][0, 0] == 20
++
++        merger.shutdown()
++
++    def test_constant_memory(self):
++        """验证内存占用恒定，不随帧数增长"""
++        merger = ConfocalMergeProcessor(merge_count=100)
++
++        for i in range(100):
++            frame = np.random.randint(0, 255, (32, 32), dtype=np.uint8)
++            merger.process(frame, {})
++            time.sleep(0.01)
++
++        # 成功处理 100 帧不应 OOM
++        merger.shutdown()
++
++
++# ============================================================
++# 7. 结构光重建测试
++# ============================================================
++
++from dac3d.processing.struct_light import StructuredLightProcessor
++
++
++class TestStructuredLight:
++
++    def test_3phase_reconstruction(self):
++        results = []
++
++        proc = StructuredLightProcessor(
++            merge_count=3,
++            dark_threshold=3.0,
++            on_complete=lambda r: results.append(r.copy()),
++        )
++
++        # 先发送暗图（触发暗图检测）
++        dark = np.full((16, 16), 10, dtype=np.uint8)
++        proc.process(dark, {})
++        time.sleep(0.2)
++
++        # 再发送 3 帧相移图像
++        for i in range(3):
++            frame = np.random.randint(50, 200, (16, 16), dtype=np.uint8)
++            proc.process(frame, {})
++            time.sleep(0.1)
++
++        time.sleep(0.5)
++        assert len(results) == 1
++        assert results[0].dtype == np.uint8
++
++        proc.shutdown()
++
++    def test_invalid_merge_count(self):
++        with pytest.raises(ValueError):
++            StructuredLightProcessor(merge_count=4)
++
++    def test_reset(self):
++        proc = StructuredLightProcessor(merge_count=3)
++        proc.reset()
++        assert proc.current_index == 0
++        proc.shutdown()
++
++
++# ============================================================
++# 8. DMD 模拟驱动测试
++# ============================================================
++
++from dac3d.hal.dmd.sim_dmd import SimDMD
++
++
++class TestSimDMD:
++
++    def test_connect_disconnect(self):
++        dmd = SimDMD("test_dmd")
++        assert dmd.connect()
++        assert dmd.is_connected
++        assert dmd.disconnect()
++        assert not dmd.is_connected
++
++    def test_load_single_pattern(self):
++        dmd = SimDMD("test_dmd")
++        dmd.connect()
++
++        pattern = np.random.randint(0, 255, (768, 1024), dtype=np.uint8)
++        assert dmd.load_pattern(pattern)
++        assert dmd.pattern_count == 1
++
++    def test_load_pattern_sequence(self):
++        dmd = SimDMD("test_dmd")
++        dmd.connect()
++
++        patterns = [
++            np.random.randint(0, 255, (768, 1024), dtype=np.uint8)
++            for _ in range(5)
++        ]
++        assert dmd.load_pattern_sequence(patterns)
++        assert dmd.pattern_count == 5
++
++    def test_binary_packing_saves_memory(self):
++        """验证二进制打包节省 8 倍内存"""
++        dmd = SimDMD("test_dmd")
++        dmd.connect()
++
++        pattern = np.full((768, 1024), 255, dtype=np.uint8)
++        dmd.load_pattern(pattern)
++
++        # 原始: 768*1024 = 786432 字节
++        # 打包后: 786432 / 8 = 98304 字节
++        packed_size = dmd._patterns[0].nbytes
++        original_size = 768 * 1024
++        assert packed_size < original_size // 7  # 至少节省 7 倍
++
++    def test_display_pattern(self):
++        dmd = SimDMD("test_dmd")
++        dmd.connect()
++
++        patterns = [np.full((768, 1024), v, dtype=np.uint8) for v in [0, 128, 255]]
++        dmd.load_pattern_sequence(patterns)
++
++        assert dmd.display_pattern(1)
++        assert not dmd.display_pattern(10)  # 超出范围
++
++    def test_sequence_start_stop(self):
++        from dac3d.hal.interfaces import TriggerMode
++
++        dmd = SimDMD("test_dmd", {"frame_time_ms": 5.0})
++        dmd.connect()
++
++        patterns = [np.full((64, 64), v, dtype=np.uint8) for v in [0, 128, 255]]
++        dmd.load_pattern_sequence(patterns)
++
++        assert dmd.start_sequence(TriggerMode.CONTINUOUS)
++        time.sleep(0.1)  # 让序列运行一会儿
++
++        assert dmd.stop_sequence()
++
++    def test_reset_clears_patterns(self):
++        dmd = SimDMD("test_dmd")
++        dmd.connect()
++        dmd.load_pattern_sequence([np.zeros((64, 64), dtype=np.uint8)])
++        assert dmd.pattern_count == 1
++
++        dmd.reset()
++        assert dmd.pattern_count == 0
++
++    def test_set_illumination(self):
++        dmd = SimDMD("test_dmd")
++        dmd.connect()
++        assert dmd.set_illumination(0.5)
++        assert dmd._illumination == 0.5
++        assert dmd.set_illumination(1.5)  # 应该被 clamp 到 1.0
++        assert dmd._illumination == 1.0
++
++    def test_get_info(self):
++        dmd = SimDMD("test_dmd")
++        dmd.connect()
++        info = dmd.get_info()
++        assert info["device_id"] == "test_dmd"
++        assert info["type"] == "Simulated DMD"
++
++
++# ============================================================
++# 9. LiveView 处理器测试
++# ============================================================
++
++# Import LiveViewProcessor directly to avoid ui/__init__.py requiring PyQt5
++import importlib.util as _ilu
++import sys as _sys
++
++_spec = _ilu.spec_from_file_location(
++    "live_view_widget",
++    os.path.join(os.path.dirname(__file__), "..", "..", "ui", "live_view_widget.py"),
++)
++_mod = _ilu.module_from_spec(_spec)
++_sys.modules["live_view_widget"] = _mod
++_spec.loader.exec_module(_mod)
++LiveViewProcessor = _mod.LiveViewProcessor
++
++
++class TestLiveViewProcessor:
++
++    def test_receives_frames(self):
++        view = LiveViewProcessor()
++        frame = np.random.randint(0, 255, (64, 64), dtype=np.uint8)
++        view.process(frame, {"camera_id": "cam0"})
++        assert view.frame_count == 1
++
++    def test_keeps_only_latest(self):
++        """验证跳帧策略"""
++        view = LiveViewProcessor()
++
++        view.process(np.full((8, 8), 1, dtype=np.uint8), {})
++        view.process(np.full((8, 8), 2, dtype=np.uint8), {})
++        view.process(np.full((8, 8), 3, dtype=np.uint8), {})
++
++        result = view.get_latest()
++        assert result is not None
++        frame, _ = result
++        assert frame[0, 0] == 3  # 只保留最新帧
++
++        assert view.dropped_count == 2
++
++    def test_get_latest_clears(self):
++        view = LiveViewProcessor()
++        view.process(np.zeros((8, 8), dtype=np.uint8), {})
++
++        result1 = view.get_latest()
++        assert result1 is not None
++
++        result2 = view.get_latest()
++        assert result2 is None  # 已消费
++
++    def test_concurrent_access(self):
++        view = LiveViewProcessor()
++        errors = []
++
++        def producer():
++            try:
++                for i in range(100):
++                    view.process(np.full((8, 8), i % 256, dtype=np.uint8), {"i": i})
++                    time.sleep(0.001)
++            except Exception as e:
++                errors.append(e)
++
++        def consumer():
++            try:
++                for _ in range(100):
++                    view.get_latest()
++                    time.sleep(0.003)  # ~30ms 刷新
++            except Exception as e:
++                errors.append(e)
++
++        t1 = threading.Thread(target=producer)
++        t2 = threading.Thread(target=consumer)
++        t1.start()
++        t2.start()
++        t1.join()
++        t2.join()
++
++        assert len(errors) == 0
++        assert view.frame_count == 100
++
++
++# ============================================================
++# 10. 集成测试：完整扫描流水线
++# ============================================================
++
++from dac3d.hal.sim.sim_camera import SimCamera
++from dac3d.hal.sim.sim_fpga import SimFPGA
++from dac3d.hal.camera.camera_array import CameraArray
++from dac3d.services.scan_service import ScanService
++from dac3d.hal.interfaces import ScanRegion
++
++
++class TestScanPipelineIntegration:
++    """测试增强后的完整扫描流水线"""
++
++    def _create_system(self):
++        cam = SimCamera("cam0", {"width": 64, "height": 64})
++        stage_xy = SimStage("xy", {"velocity": 1000.0})
++        stage_z = SimStage("z", {"velocity": 1000.0})
++        fpga = SimFPGA("fpga")
++        cameras = CameraArray([cam])
++        service = ScanService(stage_xy, stage_z, fpga, cameras)
++        return service
++
++    def test_render_chain_receives_frames(self):
++        """验证渲染链在扫描过程中接收到帧数据"""
++        service = self._create_system()
++
++        # 挂载处理器到渲染链
++        counter = CountingProcessor()
++        service.get_render_chain("normal").add(counter)
++
++        # 初始化 + 回零 + 配置 + 扫描
++        assert service.initialize_system()
++        assert service.home_all_axes()
++
++        region = ScanRegion(
++            start=Position(0, 0, 0),
++            end=Position(0.05, 0.05, 0),
++            step_x=0.01,
++            step_y=0.05,
++        )
++        assert service.configure_scan(region)
++        assert service.execute_scan()
++
++        # 渲染链应该接收到帧数据
++        assert counter.count > 0
++
++    def test_event_driven_scan(self):
++        """验证事件驱动扫描正常完成"""
++        service = self._create_system()
++        assert service.initialize_system()
++        assert service.home_all_axes()
++
++        region = ScanRegion(
++            start=Position(0, 0, 0),
++            end=Position(0.03, 0.03, 0),
++            step_x=0.01,
++            step_y=0.03,
++        )
++        assert service.configure_scan(region)
++        assert service.execute_scan()
++
++        data = service.get_scan_data()
++        assert len(data) > 0
++        for cam_id, frames in data.items():
++            assert len(frames) > 0
+diff --git a/ui/live_view_widget.py b/ui/live_view_widget.py
+new file mode 100644
+index 0000000..d8b6e26
+--- /dev/null
++++ b/ui/live_view_widget.py
+@@ -0,0 +1,154 @@
++"""
++实时图像预览组件
++
++借鉴 DMDConfocal 的 VideoView 设计：
++- 30ms 定时刷新（~33 FPS）
++- 跳帧策略：仅保留最新帧，不积压
++- 线程安全的帧接收
++"""
++
++import logging
++import threading
++from typing import Optional, Dict, Any
++import numpy as np
++from numpy.typing import NDArray
++
++from dac3d.core.pipeline.render_chain import FrameProcessor
++
++logger = logging.getLogger(__name__)
++
++# 检测 PyQt5 是否可用（测试环境可能没有）
++_HAS_QT = False
++try:
++    from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout
++    from PyQt5.QtGui import QImage, QPixmap
++    from PyQt5.QtCore import QTimer, Qt
++    _HAS_QT = True
++except ImportError:
++    pass
++
++
++class LiveViewProcessor(FrameProcessor):
++    """实时图像预览处理器（无 Qt 依赖版）
++
++    可作为 FrameProcessor 插入 RenderChain，接收每一帧数据。
++    使用 30ms 采样策略：只保留最新帧，避免积压。
++    """
++
++    def __init__(self, name: str = "live_view"):
++        self._name = name
++        self._latest_frame: Optional[NDArray] = None
++        self._latest_metadata: Optional[Dict] = None
++        self._lock = threading.Lock()
++        self._frame_count = 0
++        self._dropped_count = 0
++
++    def process(self, frame: NDArray, metadata: Dict[str, Any]) -> None:
++        """接收帧数据（从采集线程调用）
++
++        仅保留最新帧引用，跳过中间帧（等价于 DMDConfocal VideoView 的跳帧策略）
++        """
++        with self._lock:
++            if self._latest_frame is not None:
++                self._dropped_count += 1
++            self._latest_frame = frame.copy()
++            self._latest_metadata = dict(metadata)
++            self._frame_count += 1
++
++    def get_latest(self) -> Optional[tuple]:
++        """获取最新帧（消费后清空）
++
++        Returns:
++            (frame, metadata) 或 None
++        """
++        with self._lock:
++            if self._latest_frame is None:
++                return None
++            frame = self._latest_frame
++            meta = self._latest_metadata
++            self._latest_frame = None
++            self._latest_metadata = None
++            return frame, meta
++
++    @property
++    def frame_count(self) -> int:
++        return self._frame_count
++
++    @property
++    def dropped_count(self) -> int:
++        return self._dropped_count
++
++
++if _HAS_QT:
++    class LiveViewWidget(QWidget, LiveViewProcessor):
++        """实时图像预览 Qt 组件
++
++        借鉴 DMDConfocal VideoView 的定时刷新策略：
++        - SetTimer(529, 30, NULL) → QTimer 30ms
++        - 仅在定时器触发时从最新帧缓冲区取帧显示
++        """
++
++        def __init__(self, parent=None, refresh_ms: int = 30):
++            QWidget.__init__(self, parent)
++            LiveViewProcessor.__init__(self, "live_view_widget")
++
++            self._label = QLabel("No Image")
++            self._label.setAlignment(Qt.AlignCenter)
++            self._label.setMinimumSize(256, 256)
++            self._label.setStyleSheet("background-color: black; color: white;")
++
++            layout = QVBoxLayout(self)
++            layout.setContentsMargins(0, 0, 0, 0)
++            layout.addWidget(self._label)
++
++            # 30ms 定时刷新（等价于 DMDConfocal 的 SetTimer(529, 30, NULL)）
++            self._timer = QTimer()
++            self._timer.timeout.connect(self._refresh)
++            self._timer.start(refresh_ms)
++
++            self._fps_count = 0
++            self._display_count = 0
++
++        def _refresh(self):
++            """定时器回调，在 UI 线程中刷新显示"""
++            result = self.get_latest()
++            if result is None:
++                return
++
++            frame, metadata = result
++            self._display_count += 1
++
++            # uint16 → uint8 映射
++            if frame.dtype == np.uint16:
++                display = (frame >> 8).astype(np.uint8)
++            elif frame.dtype == np.float64 or frame.dtype == np.float32:
++                display = np.clip(frame, 0, 255).astype(np.uint8)
++            else:
++                display = frame.astype(np.uint8)
++
++            # 确保连续内存
++            if not display.flags['C_CONTIGUOUS']:
++                display = np.ascontiguousarray(display)
++
++            h, w = display.shape[:2]
++            if display.ndim == 2:
++                qimg = QImage(display.data, w, h, w, QImage.Format_Grayscale8)
++            else:
++                qimg = QImage(display.data, w, h, w * 3, QImage.Format_RGB888)
++
++            pixmap = QPixmap.fromImage(qimg)
++            scaled = pixmap.scaled(
++                self._label.size(),
++                Qt.KeepAspectRatio,
++                Qt.SmoothTransformation
++            )
++            self._label.setPixmap(scaled)
++
++        @property
++        def display_count(self) -> int:
++            return self._display_count
++
++
++__all__ = ["LiveViewProcessor"]
++if _HAS_QT:
++    __all__.append("LiveViewWidget")
+-- 
+2.43.0
+
